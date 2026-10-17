@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { balance, clear, clearPrice, click, income, newGame, purchase, purchasePrice, tick, unlock, slotPrice, type Maker } from './game.ts';
+import { balance, clear, clearPrice, click, clickPayout, clickUpgradePrice, income, newGame, purchase, purchasePrice, tick, unlock, slotPrice, upgradeClick, type Maker } from './game.ts';
 import { restore, serialize } from './save.ts';
 
 function owned() {
@@ -56,4 +56,21 @@ test('missing, incompatible, and broken saves open a fresh run', () => {
   for (const raw of [null, '{', '{}', '{"version":99}', '{"version":2,"game":{}}']) {
     assert.deepEqual(restore(raw), newGame());
   }
+});
+
+test('click specializations are exclusive and persist through saves', () => {
+  const game = newGame();
+  const selected = upgradeClick({ ...game, gold: clickUpgradePrice(game) }, 'strong');
+  assert.equal(selected.gold, 0);
+  assert.equal(selected.clickBranch, 'strong');
+  const funded = { ...selected, gold: clickUpgradePrice(selected) };
+  assert.equal(upgradeClick(funded, 'bonus'), funded);
+  assert.deepEqual(restore(serialize(selected)), selected);
+  assert.ok(clickPayout(selected) > clickPayout(game));
+
+  const bonus = upgradeClick({ ...game, gold: clickUpgradePrice(game) }, 'bonus');
+  assert.equal(clickPayout(bonus), balance.clickGold);
+  const beforeBonus = { ...bonus, clicks: balance.clickUpgrade.bonusEvery - 1 };
+  assert.equal(click(beforeBonus).gold - beforeBonus.gold, balance.clickGold + balance.clickUpgrade.bonusGold * bonus.clickLevel);
+  assert.equal(clickPayout(click(beforeBonus)), balance.clickGold);
 });

@@ -4,7 +4,7 @@ import { balance, newGame, type Game, type Slot } from './game.ts';
 export const saveKey = 'sleek.run.v1';
 
 export function serialize(game: Game): string {
-  return JSON.stringify({ version: 2, game });
+  return JSON.stringify({ version: 3, game });
 }
 
 export function restore(raw: string | null): Game {
@@ -20,11 +20,18 @@ export function restore(raw: string | null): Game {
       game = { gold: game.points, activeSeconds: game.activeSeconds, nextId: game.nextId, purchases: game.purchases, slots, ended: false };
       version = 2;
     }
+    if (version === 2 && game) {
+      game = { ...game, clicks: 0, clickBranch: null, clickLevel: 0 };
+      version = 3;
+    }
     const nonnegative = (value: unknown) => typeof value === 'number' && Number.isFinite(value) && value >= 0;
     const integer = (value: unknown) => nonnegative(value) && Number.isSafeInteger(value);
-    if (version !== 2 || !game || typeof game.gold !== 'number' || !Number.isFinite(game.gold)
+    if (version !== 3 || !game || typeof game.gold !== 'number' || !Number.isFinite(game.gold)
       || typeof game.ended !== 'boolean' || game.ended !== (game.gold < 0)
       || !integer(game.activeSeconds) || !integer(game.nextId) || game.nextId < 1
+      || !integer(game.clicks) || !integer(game.clickLevel)
+      || !(game.clickBranch === null || game.clickBranch === 'strong' || game.clickBranch === 'bonus')
+      || (game.clickBranch === null) !== (game.clickLevel === 0)
       || !integer(game.purchases?.standard) || !integer(game.purchases?.fragile)
       || !Array.isArray(game.slots) || game.slots.length !== balance.slotCount
       || !game.slots.every((slot: Slot) => slot === null || slot === 'locked' || (slot

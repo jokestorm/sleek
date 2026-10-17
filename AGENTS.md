@@ -10,6 +10,8 @@ Use `npm install`, then `npm run dev` for local development. `npm run build` typ
 
 ## Coding Style & Naming Conventions
 
+Keep implementation as simple as possible. Prefer direct code and existing tools. Add abstractions, dependencies, or infrastructure only when a current requirement needs them. Build in small, reviewable steps.
+
 Match the README's Markdown style: hash-prefixed headings, short paragraphs, hyphenated lists, and tables for comparisons. Use consistent gameplay terms such as “gold,” “makers,” “slots,” “failure,” and “active play.” Distinguish agreed mechanics from proposals and illustrative balance values.
 
 Use two-space indentation, camelCase functions, and PascalCase components and types. Keep balance values in `src/game/game.ts`. No formatter or linter is configured.

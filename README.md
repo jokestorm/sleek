@@ -30,6 +30,16 @@ Open the local URL printed by Vite.
 
 Gold is both spendable currency and the potential submitted score. The grid has 36 slots; two start unlocked and empty. Other slots require individual purchases. Unlocking a slot leaves it empty, ready for a maker. Clearing a failed maker keeps its slot unlocked.
 
+Maker cards resize with the grid's available width and adapt their column count. The desktop layout places clicking and its upgrade tree on the left, with makers on the right; narrow screens stack the panel above the grid. The page width is capped at 1440px. The grid flows down the page using normal page scrolling.
+
+## Click Upgrades
+
+Choose one specialization per run: stronger clicks or a bonus every tenth click. The choice locks the other branch for that run. Further purchases level up the selected branch, with increasing costs. Click income is independent of maker ownership and production.
+
+The tree shows the shared starting node and both exclusive paths. Selecting one highlights it and crosses out the other path for that run. Future levels on the closed path show only “Locked.”
+
+Experimental starting values: choosing a branch costs 40 gold. Each stronger-click level adds 1 gold per click; each bonus level adds 12 gold on every tenth click. The click button shows the next click's payout. The choice, level, and click count persist in saves.
+
 ## Makers and Failure
 
 - Standard makers balance production and reliability; fragile makers produce more with greater failure risk.
@@ -53,7 +63,6 @@ The save format is versioned. Initial playable saves with up to 36 earners migra
 
 These features remain to be implemented:
 
-- Click upgrades with exclusive specializations, independent of maker production.
 - Individual maker payout upgrades.
 - Combining any two active makers at fixed, disclosed success odds. Success averages their ages, randomly inherits one parent's type, and improves combined base production. Purchased payout bonuses are consumed.
 - With the new failure system, the consequence of an unsuccessful combination still needs to be decided.

@@ -7,6 +7,7 @@ export const balance = {
   slotMultiplier: 1.35,
   failedDrain: 0.1,
   clearMultiplier: 0.5,
+  clickUpgrade: { price: 40, priceMultiplier: 1.8, strongGold: 1, bonusEvery: 10, bonusGold: 12 },
   makers: {
     standard: { name: 'Standard', price: 15, income: 1, failureRisk: 0.001, agingRisk: 0.00002 },
     fragile: { name: 'Fragile', price: 30, income: 3, failureRisk: 0.004, agingRisk: 0.00006 },
@@ -14,6 +15,7 @@ export const balance = {
 };
 
 export type MakerType = keyof typeof balance.makers;
+export type ClickBranch = 'strong' | 'bonus';
 export type Maker = { id: number; type: MakerType; age: number; failed: boolean };
 export type Slot = Maker | null | 'locked';
 export type Game = {
@@ -23,6 +25,9 @@ export type Game = {
   purchases: Record<MakerType, number>;
   slots: Slot[];
   ended: boolean;
+  clicks: number;
+  clickBranch: ClickBranch | null;
+  clickLevel: number;
 };
 
 export function newGame(): Game {
@@ -30,7 +35,7 @@ export function newGame(): Game {
     gold: 0, activeSeconds: 0, nextId: 1,
     purchases: { standard: 0, fragile: 0 },
     slots: Array.from({ length: balance.slotCount }, (_, index) => index < balance.startingSlots ? null : 'locked'),
-    ended: false,
+    ended: false, clicks: 0, clickBranch: null, clickLevel: 0,
   };
 }
 
@@ -61,7 +66,25 @@ export function income(game: Game): number {
 }
 
 export function click(game: Game): Game {
-  return game.ended ? game : { ...game, gold: game.gold + balance.clickGold };
+  return game.ended ? game : { ...game, gold: game.gold + clickPayout(game), clicks: game.clicks + 1 };
+}
+
+export function clickPayout(game: Game): number {
+  if (game.clickBranch === 'strong') return balance.clickGold + game.clickLevel * balance.clickUpgrade.strongGold;
+  if (game.clickBranch === 'bonus' && (game.clicks + 1) % balance.clickUpgrade.bonusEvery === 0) {
+    return balance.clickGold + game.clickLevel * balance.clickUpgrade.bonusGold;
+  }
+  return balance.clickGold;
+}
+
+export function clickUpgradePrice(game: Game): number {
+  return Math.ceil(balance.clickUpgrade.price * balance.clickUpgrade.priceMultiplier ** game.clickLevel);
+}
+
+export function upgradeClick(game: Game, branch: ClickBranch): Game {
+  const price = clickUpgradePrice(game);
+  if (game.ended || game.gold < price || (game.clickBranch !== null && game.clickBranch !== branch)) return game;
+  return { ...game, gold: game.gold - price, clickBranch: branch, clickLevel: game.clickLevel + 1 };
 }
 
 export function purchase(game: Game, type: MakerType, index: number): Game {

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { createRoot } from 'react-dom/client';
-import { balance, clear, clearPrice, click, failureRisk, income, newGame, production, purchase, purchasePrice, slotPrice, tick, unlock, type Game, type MakerType } from './game/game.ts';
+import { balance, clear, clearPrice, click, clickPayout, clickUpgradePrice, failureRisk, income, newGame, production, purchase, purchasePrice, slotPrice, tick, unlock, upgradeClick, type ClickBranch, type Game, type MakerType } from './game/game.ts';
 import { restore, saveKey, serialize } from './game/save.ts';
 import './style.css';
 
@@ -43,6 +43,7 @@ function App() {
   const running = !paused && visible && !game.ended;
   const netIncome = income(game);
   const unlockCost = slotPrice(game);
+  const upgradeCost = clickUpgradePrice(game);
 
   return (
     <main>
@@ -55,12 +56,37 @@ function App() {
       <section className="toolbar" aria-label="Run statistics">
         <div><span>Gold</span><strong className={game.gold < 0 ? 'negative' : 'gold'}>{gold.format(game.gold)}</strong></div>
         <div><span>Gold / sec</span><strong className={netIncome < 0 ? 'negative' : 'positive'}>{signed(netIncome)}</strong></div>
-        <button className="click-button" disabled={!running} onClick={() => setGame(click)}>Earn gold <small>+{balance.clickGold}</small></button>
       </section>
       {saveFailed && <p className="warning" role="alert">Unable to save. Keep this tab open to preserve your run.</p>}
       {paused && !game.ended && <p className="notice" role="status">Paused</p>}
       {game.ended && <section className="game-over" role="status"><div><h2>Run ended</h2><p>Your gold fell below zero.</p></div><button onClick={() => { setGame(newGame()); setPaused(false); }}>New run</button></section>}
-      <section className="maker-grid" aria-label="36 maker slots">
+      <div className="game-layout">
+        <aside className="click-panel" aria-label="Clicking and upgrades">
+          <h2>Clicking</h2>
+          <button className="click-button" disabled={!running} onClick={() => setGame(click)}>Earn gold <strong>+{gold.format(clickPayout(game))}</strong></button>
+          <section className="upgrade-tree" aria-label="Click upgrades">
+            <div className="tree-root">Click upgrades</div>
+            <p className="branch-rule">Choose one path per run</p>
+            <div className="tree-branches">
+              {(['strong', 'bonus'] as ClickBranch[]).map((branch) => {
+                const selected = game.clickBranch === branch;
+                const locked = game.clickBranch !== null && !selected;
+                return <div className={`tree-branch ${selected ? 'selected' : ''} ${locked ? 'locked-out' : ''}`} key={branch}>
+                  <button className="upgrade-node" disabled={!running || locked || game.gold < upgradeCost}
+                    onClick={() => setGame((current) => upgradeClick(current, branch))}>
+                    <span className="branch-state">{locked ? 'Locked out' : selected ? `Selected · Lv ${game.clickLevel}` : 'Choose path'}</span>
+                    <strong>{branch === 'strong' ? 'Stronger clicks' : 'Tenth-click bonus'}</strong>
+                    <small>{branch === 'strong' ? `+${balance.clickUpgrade.strongGold} gold / click` : `+${balance.clickUpgrade.bonusGold} gold every ${balance.clickUpgrade.bonusEvery} clicks`}</small>
+                    <span className="upgrade-cost">{locked ? 'Unavailable this run' : `${gold.format(upgradeCost)} gold`}</span>
+                  </button>
+                  <div className="tree-next" aria-hidden="true">{locked ? '×' : '↓'}</div>
+                  <div className="next-level">{locked ? 'Locked' : <>{`Level ${selected ? game.clickLevel + 1 : 2}`}<small>{branch === 'strong' ? 'Stronger clicks' : 'Larger bonus'}</small></>}</div>
+                </div>;
+              })}
+            </div>
+          </section>
+        </aside>
+        <section className="maker-grid" aria-label="36 maker slots">
         {game.slots.map((slot, index) => (
           <article className={`slot ${slot === 'locked' ? 'locked' : slot === null ? 'empty' : slot.failed ? 'failed' : 'active'}`} key={index} aria-label={`Slot ${index + 1}`}>
             <div className="slot-heading"><span>{String(index + 1).padStart(2, '0')}</span><span>{slot === 'locked' ? 'Locked' : slot === null ? 'Empty' : slot.failed ? 'Failed' : balance.makers[slot.type].name}</span></div>
@@ -81,7 +107,8 @@ function App() {
             )}
           </article>
         ))}
-      </section>
+        </section>
+      </div>
     </main>
   );
 }
