@@ -25,3 +25,20 @@ When implementing gameplay, add automated tests for purchase progression, combin
 Git history is unavailable in this workspace, so no existing commit convention can be verified. Use concise, imperative commit subjects, such as `Clarify combination payout rules`.
 
 Pull requests should explain the change, its rationale, affected mechanics, and validation performed. Link relevant issues when available; include screenshots for UI changes. Explicitly identify newly chosen balance values or platform decisions so reviewers can assess them against the design.
+
+## Agent skills
+
+### Issue tracker
+
+Track issues and specs in GitHub Issues for `jokestorm/sleek`.
+See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+Use the five default triage labels.
+See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+Use a single-context layout: root `CONTEXT.md` and `docs/adr/`.
+See `docs/agents/domain.md`.
