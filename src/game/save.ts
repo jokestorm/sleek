@@ -1,48 +1,33 @@
-import { balance, newGame, type Game, type Slot } from './game.ts';
+import { balance, newGame, type Game, type RunRecord } from './game.ts';
 
-// Retain the storage key to migrate the first playable's save in place.
-export const saveKey = 'sleek.run.v1';
+// Fresh format for the simpler game. Earlier experimental saves are not migrated.
+export const saveKey = 'sleek.workshop.v1';
+export const serialize = (game: Game): string => JSON.stringify({ version: 1, game });
 
-export function serialize(game: Game): string {
-  return JSON.stringify({ version: 3, game });
-}
+const nonnegative = (value: unknown): value is number => typeof value === 'number' && Number.isFinite(value) && value >= 0;
+const integer = (value: unknown): value is number => nonnegative(value) && Number.isSafeInteger(value);
 
 export function restore(raw: string | null): Game {
   if (!raw) return newGame();
   try {
-    const saved = JSON.parse(raw);
-    let { version, game } = saved;
-    if (version === 1 && game && Array.isArray(game.earners) && game.earners.length <= balance.slotCount) {
-      const slots: Slot[] = newGame().slots;
-      game.earners.forEach((earner: { id: number; type: 'standard' | 'fragile'; age: number }, index: number) => {
-        slots[index] = { ...earner, failed: false };
-      });
-      game = { gold: game.points, activeSeconds: game.activeSeconds, nextId: game.nextId, purchases: game.purchases, slots, ended: false };
-      version = 2;
-    }
-    if (version === 2 && game) {
-      game = { ...game, clicks: 0, clickBranch: null, clickLevel: 0 };
-      version = 3;
-    }
-    const nonnegative = (value: unknown) => typeof value === 'number' && Number.isFinite(value) && value >= 0;
-    const integer = (value: unknown) => nonnegative(value) && Number.isSafeInteger(value);
-    if (version !== 3 || !game || typeof game.gold !== 'number' || !Number.isFinite(game.gold)
-      || typeof game.ended !== 'boolean' || game.ended !== (game.gold < 0)
-      || !integer(game.activeSeconds) || !integer(game.nextId) || game.nextId < 1
-      || !integer(game.clicks) || !integer(game.clickLevel)
-      || !(game.clickBranch === null || game.clickBranch === 'strong' || game.clickBranch === 'bonus')
-      || (game.clickBranch === null) !== (game.clickLevel === 0)
-      || !integer(game.purchases?.standard) || !integer(game.purchases?.fragile)
-      || !Array.isArray(game.slots) || game.slots.length !== balance.slotCount
-      || !game.slots.every((slot: Slot) => slot === null || slot === 'locked' || (slot
-        && integer(slot.id) && slot.id > 0 && slot.id < game.nextId
-        && (slot.type === 'standard' || slot.type === 'fragile')
-        && integer(slot.age) && typeof slot.failed === 'boolean'))) {
-      return newGame();
-    }
-    const ids = game.slots.filter((slot: Slot) => slot && slot !== 'locked').map((maker: { id: number }) => maker.id);
-    return new Set(ids).size === ids.length ? game : newGame();
-  } catch {
-    return newGame();
-  }
+    const { version, game } = JSON.parse(raw);
+    if (version !== 1 || !game || !nonnegative(game.gold) || !nonnegative(game.earned) || game.gold > game.earned
+      || !nonnegative(game.totalEarned) || game.totalEarned < game.earned || !integer(game.activeSeconds)
+      || !integer(game.clicks) || !integer(game.clickLevel) || game.clickLevel > 1000
+      || ![null, 'strong', 'bonus'].includes(game.clickBranch) || (game.clickBranch === null) !== (game.clickLevel === 0)
+      || !integer(game.prestigePoints) || !integer(game.runNumber) || game.runNumber < 1 || typeof game.ended !== 'boolean'
+      || !game.earners || Object.keys(game.earners).length !== Object.keys(balance.earners).length
+      || !Object.keys(balance.earners).every(type => integer(game.earners[type]?.count) && integer(game.earners[type]?.level)
+        && game.earners[type].level <= balance.earnerMaxLevel)
+      || !game.contract || !integer(game.contract.round) || !integer(game.contract.startClicks) || game.contract.startClicks > game.clicks
+      || !nonnegative(game.contract.startEarned) || game.contract.startEarned > game.earned
+      || !nonnegative(game.contract.targetGold) || game.contract.targetGold < 1 || !nonnegative(game.contract.reward)
+      || !Array.isArray(game.records) || game.records.length > 20 || !game.records.every((record: RunRecord) => record
+        && integer(record.run) && record.run > 0 && record.run <= game.runNumber && nonnegative(record.score) && Number.isInteger(record.score)
+        && nonnegative(record.earned) && record.score <= record.earned && integer(record.activeSeconds) && integer(record.earners)
+        && ['submitted', 'prestige'].includes(record.reason))
+      || new Set(game.records.map((record: RunRecord) => record.run)).size !== game.records.length
+      || game.ended && !game.records.some((record: RunRecord) => record.run === game.runNumber && record.reason === 'submitted')) return newGame();
+    return game;
+  } catch { return newGame(); }
 }

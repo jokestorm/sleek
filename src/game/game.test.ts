@@ -1,76 +1,106 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { balance, clear, clearPrice, click, clickPayout, clickUpgradePrice, income, newGame, purchase, purchasePrice, tick, unlock, slotPrice, upgradeClick, type Maker } from './game.ts';
+import * as rules from './game.ts';
 import { restore, serialize } from './save.ts';
 
-function owned() {
-  const start = newGame();
-  return purchase({ ...start, gold: purchasePrice(start, 'standard') }, 'standard', 0);
+function funded() {
+  return { ...rules.newGame(), gold: 1_000_000, earned: 1_000_000, totalEarned: 1_000_000 };
 }
 
-test('restoring a run preserves state without advancing time', () => {
-  const game = tick(owned(), () => 1);
+test('buying adds dependable income without changing other earner types', () => {
+  const game = funded();
+  const bought = rules.purchase(game, 'starter');
+  assert.equal(bought.gold, game.gold - rules.purchasePrice(game, 'starter'));
+  assert.equal(bought.earners.starter.count, 1);
+  assert.deepEqual(bought.earners.dynamo, game.earners.dynamo);
+  assert.ok(rules.income(bought) > 0);
+  let later = bought;
+  for (let second = 0; second < 600; second++) later = rules.tick(later);
+  assert.deepEqual(later.earners, bought.earners);
+  assert.equal(rules.income(later), rules.income(bought));
+  assert.ok(Math.abs(later.gold - bought.gold - rules.income(bought) * 600) < 1e-6);
+});
+
+test('one upgrade doubles the whole type and applies to future purchases', () => {
+  const game = rules.purchase(rules.purchase(funded(), 'starter'), 'starter');
+  const upgraded = rules.upgradeEarner(game, 'starter');
+  assert.equal(upgraded.gold, game.gold - rules.earnerUpgradePrice(game, 'starter'));
+  assert.equal(upgraded.earners.starter.count, game.earners.starter.count);
+  assert.equal(rules.production(upgraded, 'starter'), rules.production(game, 'starter') * 2);
+  assert.deepEqual(upgraded.earners.dynamo, game.earners.dynamo);
+  const next = rules.purchase(upgraded, 'starter');
+  assert.equal(rules.income(next) - rules.income(upgraded), rules.unitProduction(upgraded, 'starter'));
+});
+
+test('unaffordable, unowned, capped, and undiscovered purchases preserve the game', () => {
+  const game = rules.newGame();
+  assert.equal(rules.purchase(game, 'starter'), game);
+  assert.equal(rules.upgradeEarner(funded(), 'starter').earners.starter.level, 0);
+  assert.equal(rules.purchase({ ...game, gold: 1e30 }, 'genesis').earners.genesis.count, 0);
+  const capped = { ...funded(), earners: { ...game.earners, starter: { count: 1, level: rules.balance.earnerMaxLevel } } };
+  assert.equal(rules.upgradeEarner(capped, 'starter'), capped);
+});
+
+test('spending and time do not change the next lifetime unlock', () => {
+  const game = rules.newGame();
+  const first = rules.nextUnlock(game)!;
+  assert.equal(rules.nextUnlock({ ...game, activeSeconds: 86400, clicks: 5000, gold: 1e12 })?.id, first.id);
+  const reached = { ...game, totalEarned: first.requirement, earned: first.requirement };
+  assert.equal(rules.earnerUnlocked(reached, first.id), true);
+  assert.notEqual(rules.nextUnlock(reached)?.id, first.id);
+});
+
+test('save restoration preserves counts and upgrades without offline production', () => {
+  const game = rules.tick(rules.upgradeEarner(rules.purchase(funded(), 'starter'), 'starter'));
+  assert.deepEqual(restore(serialize(game)), game);
+  for (const raw of [null, '{', '{}', '{"version":99,"game":{}}']) assert.deepEqual(restore(raw), rules.newGame());
+  const corrupted = { ...game, earners: { ...game.earners, starter: { count: -1, level: 1 } } };
+  assert.deepEqual(restore(serialize(corrupted)), rules.newGame());
+});
+
+test('click paths stay exclusive and the tenth-click reward is predictable', () => {
+  const game = rules.upgradeClick(funded(), 'bonus');
+  assert.equal(rules.upgradeClick(game, 'strong'), game);
+  const ninth = { ...game, clicks: rules.balance.clickUpgrade.bonusEvery - 1 };
+  assert.ok(rules.clickPayout(ninth) > rules.clickPayout(game));
+  assert.equal(rules.click(ninth).clicks, rules.balance.clickUpgrade.bonusEvery);
   assert.deepEqual(restore(serialize(game)), game);
 });
 
-test('failure keeps the slot occupied, drains production, and requires paid clearing', () => {
-  const game = owned();
-  const failed = tick(game, () => 0);
-  const maker = failed.slots[0] as Maker;
-  assert.equal(maker.failed, true);
-  assert.equal(income(failed), -income(game) * balance.failedDrain);
-  assert.equal(purchase(failed, 'standard', 0), failed);
-  assert.equal(clear({ ...failed, gold: 0 }, 0).slots[0], maker);
-  const funded = { ...failed, gold: clearPrice(maker) };
-  const cleared = clear(funded, 0);
-  assert.equal(cleared.gold, 0);
-  assert.equal(cleared.slots[0], null);
-  assert.deepEqual(cleared.purchases, game.purchases);
+test('orders pay gold once and do not modify production', () => {
+  const game = rules.purchase(funded(), 'starter');
+  const order = rules.contracts(game).find(item => item.progress >= 1)!;
+  const claimed = rules.claimContract(game, order.id);
+  assert.equal(claimed.gold, game.gold + order.reward);
+  assert.equal(rules.income(claimed), rules.income(game));
+  assert.ok(rules.contracts(claimed).every(item => item.progress === 0));
+  assert.equal(rules.claimContract(claimed, order.id), claimed);
+  assert.deepEqual(rules.contracts(rules.newGame()), []);
 });
 
-test('zero gold is playable; negative gold ends and freezes the run', () => {
-  const failed = tick(owned(), () => 0);
-  const atZero = { ...failed, gold: 0 };
-  assert.ok(click(atZero).gold > 0);
-  const ended = tick(atZero);
-  assert.ok(ended.gold < 0);
-  assert.equal(ended.ended, true);
-  assert.equal(tick(ended), ended);
-  assert.equal(click(ended), ended);
-  assert.equal(clear(ended, 0), ended);
-  assert.deepEqual(restore(serialize(ended)), ended);
+test('prestige resets owned counts and upgrades while retaining lifetime unlocks', () => {
+  const game = rules.upgradeEarner(rules.purchase(funded(), 'starter'), 'starter');
+  const next = rules.prestige(game);
+  assert.equal(next.prestigePoints, rules.prestigeGain(game));
+  assert.equal(next.gold, 0);
+  assert.equal(next.earned, 0);
+  assert.equal(next.totalEarned, game.totalEarned);
+  assert.equal(rules.ownedCount(next), 0);
+  assert.equal(next.earners.starter.level, 0);
+  assert.equal(next.records[0].reason, 'prestige');
+  assert.deepEqual(restore(serialize(next)), next);
 });
 
-test('locked slots require purchase and clearing leaves an unlocked slot', () => {
-  const game = newGame();
-  assert.equal(game.slots.length, balance.slotCount);
-  assert.equal(game.slots.filter((slot) => slot === null).length, balance.startingSlots);
-  const funded = { ...game, gold: slotPrice(game) };
-  assert.equal(purchase(funded, 'standard', balance.startingSlots), funded);
-  const unlocked = unlock(funded, balance.startingSlots);
-  assert.equal(unlocked.slots[balance.startingSlots], null);
-  assert.equal(unlocked.gold, 0);
-});
-
-test('missing, incompatible, and broken saves open a fresh run', () => {
-  for (const raw of [null, '{', '{}', '{"version":99}', '{"version":2,"game":{}}']) {
-    assert.deepEqual(restore(raw), newGame());
-  }
-});
-
-test('click specializations are exclusive and persist through saves', () => {
-  const game = newGame();
-  const selected = upgradeClick({ ...game, gold: clickUpgradePrice(game) }, 'strong');
-  assert.equal(selected.gold, 0);
-  assert.equal(selected.clickBranch, 'strong');
-  const funded = { ...selected, gold: clickUpgradePrice(selected) };
-  assert.equal(upgradeClick(funded, 'bonus'), funded);
-  assert.deepEqual(restore(serialize(selected)), selected);
-  assert.ok(clickPayout(selected) > clickPayout(game));
-
-  const bonus = upgradeClick({ ...game, gold: clickUpgradePrice(game) }, 'bonus');
-  assert.equal(clickPayout(bonus), balance.clickGold);
-  const beforeBonus = { ...bonus, clicks: balance.clickUpgrade.bonusEvery - 1 };
-  assert.equal(click(beforeBonus).gold - beforeBonus.gold, balance.clickGold + balance.clickUpgrade.bonusGold * bonus.clickLevel);
-  assert.equal(clickPayout(click(beforeBonus)), balance.clickGold);
+test('submission freezes every economic action and persists large scores', () => {
+  const game = rules.submitRun({ ...funded(), gold: 1e30, earned: 1e30, totalEarned: 1e30 });
+  assert.equal(game.records[0].score, Math.floor(game.gold));
+  assert.equal(rules.click(game), game);
+  assert.equal(rules.tick(game), game);
+  assert.equal(rules.purchase(game, 'starter'), game);
+  assert.equal(rules.upgradeEarner(game, 'starter'), game);
+  assert.deepEqual(restore(serialize(game)), game);
+  assert.equal(rules.submitRun(game).records.length, 1);
+  const next = rules.restart(game);
+  assert.equal(next.runNumber, game.runNumber + 1);
+  assert.equal(next.totalEarned, game.totalEarned);
 });

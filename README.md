@@ -1,80 +1,101 @@
 # Sleek
 
-A browser idle clicker about building a questionable business empire. The interface is a compact dark dashboard centered on makers and gold.
+A browser clicker about turning a handful of earners into a growing gold income.
 
 ## Development
 
-Use Node.js 22.18+ (or a newer supported release).
+Use Node.js 22.18+ or a newer supported release.
 
 ```sh
 npm install
 npm run dev
 ```
 
-Open the local URL printed by Vite.
-
 - `npm run build`: typecheck and build the frontend into `dist/`.
-- `npm test`: run the small set of stable game-rule and save tests.
+- `npm test`: run the focused game-rule and save tests.
+- `npm run simulate -- 24 2 3`: simulate 24 active hours, two clicks per second, and decisions every three seconds.
 - `npm run preview`: serve the production build locally.
-- `npm run deploy`: build and deploy to Cloudflare Workers using Wrangler.
+- `npm run deploy`: build and deploy to Cloudflare Workers.
 
-`src/main.tsx` contains the screen and browser lifecycle. `src/style.css` defines its appearance. `src/game/game.ts` holds game rules and experimental balance values; `src/game/save.ts` handles versioned local saves. Use two-space indentation, camelCase functions, and PascalCase components and types.
+Optional browser workflow checks use an existing Playwright installation and a dev server on port 5174:
 
-## Core Loop
+```sh
+node scripts/browser-check.mjs /absolute/path/to/@playwright/test/index.mjs
+```
 
-1. Click to earn gold.
-2. Buy standard or fragile makers in available slots.
-3. Collect production while makers age and become more likely to fail.
-4. Spend gold on additional slots, replacements, and clearing failures.
-5. Keep the balance at zero or above. Falling below zero ends the run.
+Omit the module path if Playwright is installed in this project. `BASE_URL` overrides the local URL.
 
-Gold is both spendable currency and the potential submitted score. The grid has 36 slots; two start unlocked and empty. Other slots require individual purchases. Unlocking a slot leaves it empty, ready for a maker. Clearing a failed maker keeps its slot unlocked.
+`src/main.tsx` owns the React screen and browser lifecycle. `src/style.css` defines the presentation. `src/game/game.ts` contains rules and balance values; `src/game/save.ts` handles the current save format. Tests live beside the game rules. Use two-space indentation, camelCase functions, and PascalCase components and types.
 
-Maker cards resize with the grid's available width and adapt their column count. The desktop layout places clicking and its upgrade tree on the left, with makers on the right; narrow screens stack the panel above the grid. The page width is capped at 1440px. The grid flows down the page using normal page scrolling.
+## The Loop
 
-## Click Upgrades
+1. Click to make gold.
+2. Buy earners for automatic income.
+3. Upgrade a type to double all its earners.
+4. Discover more types through lifetime earnings.
+5. Prestige for a permanent bonus and a fresh run.
 
-Choose one specialization per run: stronger clicks or a bonus every tenth click. The choice locks the other branch for that run. Further purchases level up the selected branch, with increasing costs. Click income is independent of maker ownership and production.
+An earner type has an owned count and an upgrade level. Its row shows income per earner, combined income, and the prices for Buy one and Double output. Upgrades also apply to future purchases of that type. There is no individual unit management or capacity limit.
 
-The tree shows the shared starting node and both exclusive paths. Selecting one highlights it and crosses out the other path for that run. Future levels on the closed path show only “Locked.”
+Earners produce steadily while the game is active. They do not age, fail, drain gold, or need repairs. There are no slots, combining, retirement, or reliability upgrades. Buying more and upgrading the type are the two earner actions.
 
-Experimental starting values: choosing a branch costs 40 gold. Each stronger-click level adds 1 gold per click; each bonus level adds 12 gold on every tenth click. The click button shows the next click's payout. The choice, level, and click count persist in saves.
+## Earners and Balance
 
-## Makers and Failure
+| Type | Lifetime gold to unlock | First purchase | Base gold/sec each |
+| --- | ---: | ---: | ---: |
+| Starter | 0 | 15 | 1 |
+| Dynamo | 150 | 100 | 5 |
+| Clockwork | 1,000 | 750 | 25 |
+| Prism | 100,000 | 50,000 | 1,000 |
+| Stellar | 10 million | 5 million | 75,000 |
+| Singularity | 1 billion | 500 million | 5 million |
+| Aurora | 1e14 | 2.5e13 | 1e11 |
+| Continuum | 1e20 | 2.5e19 | 1e17 |
+| Genesis | 1e28 | 2.5e27 | 1e25 |
 
-- Standard makers balance production and reliability; fragile makers produce more with greater failure risk.
-- Buying a type increases future purchase prices for that type. Clearing does not reset prices.
-- Each maker has its own age and an exact displayed chance of failure per active second.
-- Each second settles production, rolls failures at the displayed risk, then ages active makers.
-- A failed maker remains in its slot and starts draining 10% of its normal gold-per-second production on the next tick. For example, a 10 gold/sec maker becomes a 1 gold/sec drain.
-- Failure is permanent. Pay to clear the maker before reusing its slot. Failed makers stop aging.
-- All production and drains are settled together. A net balance below zero ends and freezes the run; exactly zero remains playable.
-- Clicking is always available during an active run. After a run ends, the player can start a new one.
+All numeric values are experimental balance choices. Spending gold never reverses an unlock. The next-earner panel follows the next lifetime threshold in order.
 
-Slot prices, clearing prices, maker costs, production, failure curves, and purchase scaling are experimental values in `balance`. Initially, slots cost 25 gold with increasing prices; clearing costs 50% of that type's base purchase price, rounded up.
+Each additional purchase costs the base price multiplied by `1.15 ^ owned`, rounded up. An upgrade doubles the output of every owned earner of that type and every future purchase. The upgrade price is `base price × 10 × owned × 4 ^ upgrade level`, rounded up. Each type supports up to 50 upgrades.
+
+Total output for a type is `base gold/sec × owned × 2 ^ upgrade level × legacy multiplier`. The screen previews combined output after the next upgrade. There is no separate research layer or individual detail panel.
+
+## Active Play and Optional Orders
+
+Every click grants base gold plus 5% of current production. Choose one click specialization per run: stronger clicks add base gold to each click, while the tenth-click path grants a periodic bonus. Further purchases level the chosen path.
+
+Optional orders unlock at 250 lifetime gold. Complete either the click goal or the gold goal and claim a gold reward; both goals then refresh together. Orders do not change production. New gold targets and rewards use a snapshot of production when the round starts.
+
+## Prestige and Records
+
+Prestige unlocks after 100,000 gold earned during a run. It grants `floor(log10(run earned / 100000)) + 1` legacy points. Each point permanently adds 15% to earner production and base click gold.
+
+Prestige resets spendable gold, owned counts, type upgrades, click specialization, order progress, and active duration. Lifetime earnings, unlocked types, legacy points, and records remain. A confirmation shows the reset and reward.
+
+Submitting a run records retained gold rounded down and freezes gameplay. Records also show active duration and how the run ended. The archive keeps the current completed run and the best 19 previous records. Runs end voluntarily; there is no insolvency system.
 
 ## Saving and Pausing
 
-Progress saves automatically in this browser using `localStorage`. Closing or hiding the tab pauses production, drains, and aging. Returning never grants offline progress or applies offline losses. Manual pause is also available. Ended runs remain ended after reload until the player starts a new run.
+The current game saves automatically in this browser. Manual pause, hidden tabs, and Run & settings dialogs stop production. Returning grants no offline progress. Manual pause itself is not retained after reload.
 
-The save format is versioned. Initial playable saves with up to 36 earners migrate to makers while preserving gold, age, elapsed time, and purchase progression.
+This simpler game starts fresh and does not migrate earlier experimental saves. Current saves use the `sleek.workshop.v1` key. Run & settings offers export and restore for backups of the current format. Invalid imports keep the current run intact. There are no accounts or cloud sync.
 
-## Planned Gameplay
+## Validation
 
-These features remain to be implemented:
+Nine focused rule tests cover grouped purchases, upgrades applying to current and future earners, constant production, affordability, discovery, current saves, click paths, orders, prestige, and submitted scores. The Chromium workflow script also checks real initial clicking, type-wide upgrades, counts beyond the former slot limit, pause, save management, and phone/tablet/desktop layouts.
 
-- Individual maker payout upgrades.
-- Combining any two active makers at fixed, disclosed success odds. Success averages their ages, randomly inherits one parent's type, and improves combined base production. Purchased payout bonuses are consumed.
-- With the new failure system, the consequence of an unsuccessful combination still needs to be decided.
-- Voluntary submission to end a run and record its results.
-- Leaderboards for submitted gold, active duration, and gold per active minute. The minimum duration for efficiency eligibility remains undecided.
+`scripts/simulate.ts` uses the same rule functions as the interface and never injects gold. Its first minute uses two clicks per second; subsequent input follows the supplied click rate and management interval. An interval of zero stops management after that minute. For example:
 
-Test balance through play: higher production should justify risk, slot costs should make expansion meaningful, and combining should not trivially eliminate aging.
+```sh
+npm run simulate -- 24 0.02 30
+npm run simulate -- 24 0 0
+```
+
+Earlier research and historical balance results remain in `docs/research/`. The newest playtesting section describes the count-based model. Those automated results assess reachability and reliable production; they do not establish human enjoyment or retention.
 
 ## Hosting and Git Workflow
 
-React, TypeScript, and Vite run gameplay entirely in the browser. Cloudflare Workers serves static assets. A small Worker API backed by D1 will store trusted client submissions and serve leaderboards. Server validation, accounts, and the DigitalOcean droplet are outside the initial scope.
+React, TypeScript, and Vite run gameplay entirely in the browser. Cloudflare Workers serves static assets using `wrangler.jsonc`. Public leaderboards and accounts remain future work.
 
-For Cloudflare's Git integration, use `npm run build` as the build command and `npx wrangler deploy` as the deploy command. The Worker name is `sleek`, matching `wrangler.jsonc`.
+For Cloudflare's Git integration, use `npm run build` as the build command and `npx wrangler deploy` as the deploy command. The Worker name is `sleek`.
 
-Work on the current development branch. Confirm each core feature before committing it separately. At release checkpoints, squash merge into `main`, tag the resulting commit, then sync the development branch with `main`. Production deployments track `main`.
+Confirm core features before committing. At release checkpoints, squash merge into `main`, tag the release, and sync the development branch. Production deployments track `main`.

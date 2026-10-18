@@ -7,8 +7,9 @@
     "dev": "vite --host 0.0.0.0",
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview --host 0.0.0.0",
-    "test": "node --experimental-strip-types src/game/game.test.ts",
-    "deploy": "npm run build && wrangler deploy"
+    "test": "node --experimental-strip-types --test src/game/*.test.ts",
+    "deploy": "npm run build && wrangler deploy",
+    "simulate": "node --experimental-strip-types scripts/simulate.ts"
   },
   "engines": { "node": ">=22.18.0" },
   "dependencies": {
