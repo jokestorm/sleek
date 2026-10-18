@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import { createRoot } from 'react-dom/client';
 import catalogSource from './game/loot.json?raw';
 import { makeReel, rollInstance, validateCatalog, type OwnedItem } from './game/loot';
-import { awardItem, clearInventory, deleteItem, loadInventory, type InventoryPage } from './game/inventory';
+import { awardItem, clearInventory, deleteItem, inventorySorts, loadInventory, sortSessionInventory, type InventoryPage, type InventorySort } from './game/inventory';
 import { ItemArt } from './components/ItemArt';
 import { ItemInspection } from './components/ItemInspection';
 import { OpeningReel, type Opening } from './components/OpeningReel';
@@ -26,6 +26,9 @@ function Wear({ item }: {
 function App() {
   const catalog = parsed.catalog;
   const [inventory, setInventory] = useState<InventoryPage>(empty);
+  const [inventorySort, setInventorySort] = useState<InventorySort>('newest');
+  const sortRef = useRef<InventorySort>('newest');
+  const inventoryRequest = useRef(0);
   const [result, setResult] = useState<OwnedItem | null>(null);
   const [celebration, setCelebration] = useState<string | null>(null);
   const [opening, setOpening] = useState<Opening | null>(null);
@@ -72,16 +75,23 @@ function App() {
   else
     dialog.current?.close(); }, [odds, inspect]);
   async function refresh(limit = 24) {
+    const request = ++inventoryRequest.current;
     if (sessionOnly.current) {
-      setInventory({ items: sessionItems.current.slice(0, limit), total: sessionItems.current.length, byRarity: {} });
+      setInventory({ items: sortSessionInventory(sessionItems.current, sortRef.current).slice(0, limit), total: sessionItems.current.length, byRarity: {} });
       return;
     }
     try {
-      setInventory(await loadInventory(limit));
+      const page = await loadInventory(limit, 0, sortRef.current);
+      if (request === inventoryRequest.current) setInventory(page);
     }
     catch {
-      setError('Your collection could not be loaded. Reload to try again.');
+      if (request === inventoryRequest.current) setError('Your collection could not be loaded. Reload to try again.');
     }
+  }
+  function changeInventorySort(sort: InventorySort) {
+    sortRef.current = sort;
+    setInventorySort(sort);
+    void refresh();
   }
   function confirmInventoryAction(action: InventoryAction) {
     if (lock.current) return;
@@ -94,13 +104,14 @@ function App() {
     setDeleting(true);
     setDeleteError('');
     try {
+      ++inventoryRequest.current;
       if (sessionOnly.current) {
         sessionItems.current = inventoryAction.kind === 'clear' ? [] : sessionItems.current.filter(item => item.instanceId !== inventoryAction.item.instanceId);
-        setInventory({ items: sessionItems.current.slice(0, Math.max(24, inventory.items.length)), total: sessionItems.current.length, byRarity: {} });
+        setInventory({ items: sortSessionInventory(sessionItems.current, sortRef.current).slice(0, Math.max(24, inventory.items.length)), total: sessionItems.current.length, byRarity: {} });
       } else {
         if (inventoryAction.kind === 'clear') await clearInventory();
         else await deleteItem(inventoryAction.item.instanceId);
-        setInventory(await loadInventory(Math.max(24, inventory.items.length)));
+        setInventory(await loadInventory(Math.max(24, inventory.items.length), 0, sortRef.current));
       }
       if (inventoryAction.kind === 'clear' || result?.instanceId === inventoryAction.item.instanceId) {
         setResult(null);
@@ -180,7 +191,7 @@ function App() {
    </section>
    </div>
    <aside className="feed-sidebar" aria-label="Live opening feed"><LiveOpeningFeed/></aside>
-   <section className="collection"><div className="section-heading"><div className="eyebrow">YOUR COLLECTION<h2>The keepers<span>{inventory.total}</span></h2></div><div className="collection-actions"><p>Individual drops. Individual character.</p><button className="clear-inventory" disabled={!inventory.total || busy || spinning || deleting} onClick={() => confirmInventoryAction({ kind: 'clear' })}>Clear inventory</button></div></div>
+   <section className="collection"><div className="section-heading"><div className="eyebrow">YOUR COLLECTION<h2>The keepers<span>{inventory.total}</span></h2></div><div className="collection-actions"><div className="inventory-sort"><label htmlFor="inventory-sort">Sort by</label><select id="inventory-sort" value={inventorySort} onChange={event => changeInventorySort(event.target.value as InventorySort)} disabled={!ready || busy || spinning || deleting}>{Object.entries(inventorySorts).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></div><button className="clear-inventory" disabled={!inventory.total || busy || spinning || deleting} onClick={() => confirmInventoryAction({ kind: 'clear' })}>Clear inventory</button></div></div>
    {inventory.items.length ? <div className="inventory-grid">{inventory.items.map(item => <div className="inventory-entry" key={item.instanceId}><button className="inventory-card" data-testid="inventory-card" {...metadata(item)} style={{ '--rarity': item.rarity.color } as CSSProperties} onClick={() => setInspect(item)}><div className="inventory-art"><ItemArt item={item.item} float={item.float} seed={item.wearSeed}/></div><div className="inventory-copy"><span className="weapon">{item.item.weapon}</span><strong>{item.item.name}</strong><div className="inventory-condition"><span>{item.condition}</span><code>{item.float.toFixed(6)}</code></div></div></button><button className="delete-inventory-item" data-testid="inventory-delete" data-instance-id={item.instanceId} aria-label={`Delete ${item.item.weapon} ${item.item.name}`} title="Delete item" disabled={busy || spinning || deleting} onClick={() => confirmInventoryAction({ kind: 'delete', item })}>×</button></div>)}</div> : <div className="empty-collection"><span>＋</span><p>A little empty. For now.</p><small>Your discoveries will appear here, saved in this browser.</small></div>}
    {inventory.items.length < inventory.total && <button className="load-more" onClick={() => void refresh(inventory.items.length + 24)}>Load more</button>}
    </section>

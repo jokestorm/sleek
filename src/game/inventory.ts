@@ -1,7 +1,21 @@
 import { conditionForFloat, type OwnedItem } from './loot.ts';
 
 export const inventoryDatabase = 'sleek-cases';
-const databaseVersion = 1;
+const databaseVersion = 2;
+export const inventorySorts = {
+  newest: 'Newest first',
+  oldest: 'Oldest first',
+  rarity: 'Rarest first',
+  'float-low': 'Float: low to high',
+  'float-high': 'Float: high to low',
+  name: 'Name: A–Z',
+} as const;
+export type InventorySort = keyof typeof inventorySorts;
+const sortIndexes: Record<InventorySort, [string, IDBCursorDirection]> = {
+  newest: ['sequence', 'prev'], oldest: ['sequence', 'next'],
+  rarity: ['rarity', 'next'], 'float-low': ['float', 'next'],
+  'float-high': ['float', 'prev'], name: ['name', 'next'],
+};
 type Stats = { key: 'stats'; total: number; byRarity: Record<string, number>; latestId: string | null; lastSequence?: number };
 type StoredItem = OwnedItem & { sequence: number };
 export type InventoryPage = { items: OwnedItem[]; total: number; byRarity: Record<string, number> };
@@ -26,9 +40,14 @@ function openDatabase(): Promise<IDBDatabase> {
     catch (error) { fail(error); return; }
     request.onupgradeneeded = () => {
       const database = request.result;
-      const items = database.createObjectStore('items', { keyPath: 'instanceId' });
-      items.createIndex('sequence', 'sequence', { unique: true });
-      database.createObjectStore('meta', { keyPath: 'key' });
+      const items = database.objectStoreNames.contains('items')
+        ? request.transaction!.objectStore('items')
+        : database.createObjectStore('items', { keyPath: 'instanceId' });
+      if (!items.indexNames.contains('sequence')) items.createIndex('sequence', 'sequence', { unique: true });
+      if (!items.indexNames.contains('rarity')) items.createIndex('rarity', ['rarity.weight', 'sequence']);
+      if (!items.indexNames.contains('float')) items.createIndex('float', ['float', 'sequence']);
+      if (!items.indexNames.contains('name')) items.createIndex('name', ['item.name', 'item.weapon', 'sequence']);
+      if (!database.objectStoreNames.contains('meta')) database.createObjectStore('meta', { keyPath: 'key' });
     };
     request.onerror = () => fail(request.error);
     request.onblocked = () => fail(new Error('Close other Sleek tabs to finish updating collection storage.'));
@@ -133,7 +152,7 @@ export async function clearInventory(): Promise<void> {
 }
 
 // Cursor pagination reads just one page; collection size does not add work to each opening.
-export async function loadInventory(limit = 24, offset = 0): Promise<InventoryPage> {
+export async function loadInventory(limit = 24, offset = 0, sort: InventorySort = 'newest'): Promise<InventoryPage> {
   if (!Number.isSafeInteger(limit) || limit < 1 || !Number.isSafeInteger(offset) || offset < 0 || offset > 2 ** 32 - 1) throw new RangeError('Inventory pagination needs a positive limit and a valid nonnegative offset.');
   const database = await openDatabase();
   return new Promise<InventoryPage>((resolve, reject) => {
@@ -149,7 +168,8 @@ export async function loadInventory(limit = 24, offset = 0): Promise<InventoryPa
       const stats: Stats | undefined = statsRequest.result;
       if (stats) { page.total = stats.total; page.byRarity = { ...stats.byRarity }; }
     };
-    const cursorRequest = transaction.objectStore('items').index('sequence').openCursor(null, 'prev');
+    const [index, direction] = sortIndexes[sort];
+    const cursorRequest = transaction.objectStore('items').index(index).openCursor(null, direction);
     let skipped = offset === 0;
     cursorRequest.onsuccess = () => {
       const cursor = cursorRequest.result;
@@ -160,4 +180,19 @@ export async function loadInventory(limit = 24, offset = 0): Promise<InventoryPa
       if (page.items.length < limit) cursor.continue();
     };
   });
+}
+
+// Session drops are held newest first. Match the indexed ordering without mutating them.
+export function sortSessionInventory(items: OwnedItem[], sort: InventorySort): OwnedItem[] {
+  const textOrder = (a: string, b: string) => a < b ? -1 : a > b ? 1 : 0;
+  return items.map((item, index) => ({ item, index })).sort((a, b) => {
+    switch (sort) {
+      case 'newest': return a.index - b.index;
+      case 'oldest': return b.index - a.index;
+      case 'rarity': return a.item.rarity.weight - b.item.rarity.weight || b.index - a.index;
+      case 'float-low': return a.item.float - b.item.float || b.index - a.index;
+      case 'float-high': return b.item.float - a.item.float || a.index - b.index;
+      case 'name': return textOrder(a.item.item.name, b.item.item.name) || textOrder(a.item.item.weapon, b.item.item.weapon) || b.index - a.index;
+    }
+  }).map(({ item }) => item);
 }

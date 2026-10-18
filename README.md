@@ -65,6 +65,8 @@ Ranges include the lower endpoint and exclude the upper endpoint. These are chos
 
 IndexedDB stores individual drops and collection counters atomically. Awarding an existing instance ID twice is idempotent. Cursor pagination keeps the initial collection read at 24 items. Additional items are available through Load more. Mute persists in localStorage.
 
+Use Sort by above the collection to choose newest first, oldest first, rarest first, float low to high, float high to low, or finish name A–Z. Sorting covers the entire saved collection before pagination. Rarest first uses the rarity's saved drop weight, with lower weights first. Changing sort starts at the first 24 items; openings and deletions retain the selected order. Newest first is the default on reload. Sorting also works for session-only drops when storage is unavailable. Existing case collections gain sorting indexes automatically without changing their items.
+
 Use the × button on a collection card, or Delete item in its inspection dialog, to remove that specific instance. Clear inventory removes the whole collection. Both ask for confirmation, with Cancel selected initially. Deletions are permanent; duplicate copies are independent. Opening, deleting, and clearing are mutually exclusive while an operation is in progress. Deleting the displayed result also clears it from the opener; neither deleted items nor cleared collections return after reload. Sound settings stay intact.
 
 If browser collection storage is unavailable, a visible notice explains that new drops only last for the current tab. If storage fails after play has started, only already loaded items and new session drops are shown. Reloading retries storage access and discards unsaved session drops. Clearing browser data deletes the collection. Collections belong to the browser and site origin: localhost, a workers.dev address, and a custom domain have separate collections. No cross-browser sync or old-save migration exists. This free demo has no cash value.
@@ -131,6 +133,7 @@ Core tests control random draws to check rarity boundaries, item-count invarianc
 BASE_URL=http://localhost:5174 node scripts/browser-check.mjs /absolute/path/to/@playwright/test/index.mjs
 BASE_URL=http://localhost:5174 node scripts/reveal-check.mjs /absolute/path/to/@playwright/test/index.mjs
 BASE_URL=http://localhost:5174 node scripts/inventory-check.mjs /absolute/path/to/@playwright/test/index.mjs
+BASE_URL=http://localhost:5174 node scripts/inventory-sort-check.mjs /absolute/path/to/@playwright/test/index.mjs
 BASE_URL=http://localhost:5174 node scripts/inspection-check.mjs /absolute/path/to/@playwright/test/index.mjs
 # Feed checks require the local Worker as well as Vite:
 BASE_URL=http://localhost:5174 node scripts/feed-check.mjs /absolute/path/to/@playwright/test/index.mjs
@@ -141,6 +144,8 @@ node scripts/feed-backend-check.mjs
 The reveal check forces each tier through real openings, checks reduced motion and restoration, and loads a test WAV to verify custom playback and mute.
 
 The inventory check covers confirmation cancellation, deleting a specific duplicate, clearing, pagination and counters after deletion, subsequent openings, and session-only storage.
+
+The sorting check covers upgrading an existing case collection, all six orders across pages, tied values, offset reads, rapid selection changes, new openings and deletions, session-only sorting, and responsive controls.
 
 The inspection check renders all four models and verifies full rotation, zoom/reset, keyboard and pointer input, touch gestures, stable wear, custom-artwork fallback, graphics failure handling, and mobile framing.
 

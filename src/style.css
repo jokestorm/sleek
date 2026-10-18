@@ -908,6 +908,13 @@ dialog::backdrop {
 }
 
 .collection-actions { display: flex; align-items: center; gap: 20px; }
+.inventory-sort { display: flex; align-items: center; gap: 10px; font-size: 12px; color: #a8b6ca; }
+.inventory-sort select { min-width: 0; max-width: 100%; padding: 9px 28px 9px 10px; border: 1px solid #354155; border-radius: 5px; background: #1d2838; color: #d5dfed; font: inherit; cursor: pointer; }
+.inventory-sort select:focus-visible { outline: 2px solid #fcb85b; outline-offset: 3px; }
+.inventory-sort select:disabled { opacity: .5; cursor: wait; }
+@media(max-width:1390px) {
+  .collection>.section-heading { align-items: flex-start; flex-wrap: wrap; gap: 18px; }
+}
 .clear-inventory, .secondary-button {
   border: 1px solid #354155; background: #1d2838; color: #b6c3d7;
   border-radius: 5px; padding: 9px 13px; font-size: 13px;
@@ -932,7 +939,11 @@ dialog::backdrop {
 .danger-button:hover:not(:disabled) { background: #6b3545; }
 .inspect-delete { margin-top: 22px; }
 @media(max-width: 540px) {
-  .collection-actions { gap: 0; }
+  .collection>.section-heading { flex-wrap: wrap; align-items: flex-start; gap: 18px; }
+  .collection-actions { width: 100%; justify-content: space-between; gap: 10px; }
+  .inventory-sort { flex: 1; flex-direction: column; align-items: flex-start; gap: 6px; min-width: 0; }
+  .inventory-sort select { font-size: 16px; width: 190px; max-width: 100%; padding-right: 18px; }
+  .collection-actions .clear-inventory { align-self: flex-end; flex-shrink: 0; }
   .clear-inventory { font-size: 12px; padding: 9px 10px; }
   .confirmation-actions { flex-direction: column-reverse; }
   .confirmation-actions button { width: 100%; min-height: 42px; }
