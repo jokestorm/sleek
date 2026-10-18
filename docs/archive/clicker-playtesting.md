@@ -1,6 +1,9 @@
 # Gameplay Playtesting
 
-The current economy is documented in [Count-based earners](#count-based-earners). Earlier sections retain historical evidence from previous designs; their individual-unit management and pacing results do not describe the current build.
+> Archived: this document describes the retired clicker. Mechanics, code paths, and reproduction commands below are historical. See the [current game guide](../../README.md) and [case-opening validation](../research/case-playtesting.md).
+
+
+The final clicker economy is documented in [Count-based earners](#count-based-earners). Earlier sections retain evidence from preceding clicker designs. None of these economy or pacing results describe the case-opening game.
 
 ## Method
 

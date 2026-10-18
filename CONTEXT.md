@@ -21,3 +21,9 @@ A browser case-opening game. The Origin Case is infinitely free during this demo
 **Opening reel**: A cosmetic animation revealing a previously saved drop. Skipping or interrupting it never rerolls the result.
 
 **Collection / inventory**: Browser-local IndexedDB storage containing individual drops. No account, trading, or cash value exists in the demo.
+
+## Current scope
+
+The shipped demo has one case, five rarity tiers with fixed weights, original weapon-inspired finishes, an opening reel with Skip and optional sound, contents and odds inspection, and a persistent collection. The catalog lives in `src/game/loot.json`; README defines its editing rules and the chosen condition thresholds.
+
+Currency, earning methods, and case costs are future work. The earlier clicker economy is retired; its research is preserved under `docs/archive/`.

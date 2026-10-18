@@ -1,6 +1,6 @@
 # Case-opening validation
 
-Validated 17 October 2026 on the `codex/case-opening` implementation. The older playtesting note documents the retired clicker.
+Validated 17 October 2026 on the `codex/case-opening` implementation. The [archived playtesting note](../archive/clicker-playtesting.md) documents the retired clicker.
 
 ## Automated rules
 
@@ -10,7 +10,7 @@ Eleven Node tests cover exact rarity boundaries, all 10,000 weighted outcomes re
 
 ## Browser gameplay
 
-Chromium checks use the actual React interface and native IndexedDB, with a fresh browser profile. They cover:
+Thirteen Chromium workflows passed, with eight UI awards and zero page errors. Checks use the actual React interface and native IndexedDB, with a fresh browser profile. They cover:
 
 - A normal reel taking about 5.5 seconds including browser interaction overhead, with the saved winning card under the pointer.
 - Twelve immediate Open clicks and twelve Skip clicks still awarding one item.
@@ -18,6 +18,7 @@ Chromium checks use the actual React interface and native IndexedDB, with a fres
 - Eight actual UI openings, including two controlled draws of the same finish with different floats.
 - Persistent individual instances, wear geometry, condition labels, IDs, and counters after reload.
 - Idempotent storage, newest-first cursor pagination, rarity totals, and identical timestamp ordering.
+- Reloading historical item snapshots after their rarity is removed from the catalog, and falling back to built-in artwork and wear masking when a custom image is missing.
 - Contents and inspection dialogs, Escape, and mute.
 - Unavailable browser storage producing an explicit session-only notice while allowing successive free openings.
 - Layouts at 320, 390, 768, and 1440 pixels without horizontal overflow.

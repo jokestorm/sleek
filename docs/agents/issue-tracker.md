@@ -1,8 +1,9 @@
 # Issue tracker: GitHub
 
 Issues and specs live at https://github.com/jokestorm/sleek/issues.
-Use the `gh` CLI with `--repo jokestorm/sleek` explicitly, since this
-workspace currently has no Git remote.
+Use the `gh` CLI with `--repo jokestorm/sleek` explicitly to keep tracker
+operations targeted at this project. The Git remote is
+`https://github.com/jokestorm/sleek.git`.
 
 ## Operations
 

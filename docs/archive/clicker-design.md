@@ -1,5 +1,8 @@
 # Clicker design research
 
+> Archived: this document describes the retired clicker. Mechanics, code paths, and reproduction commands below are historical. See the [current game guide](../../README.md) and [case-opening validation](../research/case-playtesting.md).
+
+
 Researched 17 October 2026 for Sleek. This note separates observations from proposed gameplay. README remains the authoritative implemented design. The sources are developer writing, developer interviews, an official press kit, and the publisher's product description. They suggest useful patterns; they do not prove that any one mechanic causes popularity or retention.
 
 ## Findings

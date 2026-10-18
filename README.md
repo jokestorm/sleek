@@ -5,6 +5,7 @@ A free case-opening game built with React, TypeScript, and Vite. Open the Origin
 ## Agreed gameplay
 
 - One case, unlimited free openings. Currency and case costs come later.
+- Twelve original finishes across four weapon-inspired artwork archetypes.
 - A roughly five-second reel with ticking audio, a reveal chord, Skip, and mute.
 - Five rarity tiers. Roll the rarity first, then choose uniformly among its items.
 - Every drop is a separate inventory instance. Duplicate finishes never stack.
@@ -61,7 +62,7 @@ Ranges include the lower endpoint and exclude the upper endpoint. These are chos
 
 IndexedDB stores individual drops and collection counters atomically. Awarding an existing instance ID twice is idempotent. Cursor pagination keeps the initial collection read at 24 items. Additional items are available through Load more. Mute persists in localStorage.
 
-If browser collection storage is unavailable, a visible notice explains that new drops only last for the current tab. Clearing browser data deletes the collection. No cross-browser sync or old-save migration exists. This free demo has no cash value.
+If browser collection storage is unavailable, a visible notice explains that new drops only last for the current tab. If storage fails after play has started, only already loaded items and new session drops are shown. Reloading retries storage access and discards unsaved session drops. Clearing browser data deletes the collection. Collections belong to the browser and site origin: localhost, a workers.dev address, and a custom domain have separate collections. No cross-browser sync or old-save migration exists. This free demo has no cash value.
 
 Reduced motion skips the reel. Buttons support keyboard navigation, dialogs support Escape, and results use a polite live announcement. Sound initializes from an opening click and respects mute and browser audio restrictions.
 
@@ -86,8 +87,21 @@ Core tests control random draws to check rarity boundaries, item-count invarianc
 BASE_URL=http://localhost:5174 node scripts/browser-check.mjs /absolute/path/to/@playwright/test/index.mjs
 ```
 
-See [research](docs/research/case-opening.md) for primary-source findings and deliberate differences from Counter-Strike. Original artwork was generated with the built-in imagegen tool; exact prompts and provenance are in [art prompts](docs/art-prompts.md). Older clicker research documents are historical and do not describe the current game.
+See [research](docs/research/case-opening.md) for primary-source findings and deliberate differences from Counter-Strike, and [playtesting](docs/research/case-playtesting.md) for validation results and limits. Original artwork was generated with the built-in imagegen tool; exact prompts and provenance are in [art prompts](docs/art-prompts.md). Fonts are bundled locally with their licenses. [Archived clicker documents](docs/archive/README.md) preserve the earlier design and do not describe the current game.
 
 ## Deployment
 
-Cloudflare Worker static-asset hosting is configured in `wrangler.jsonc`. `npm run deploy` builds and deploys using Wrangler credentials. Production tracks `main`; work on a development branch and review before merging. No deployment is part of this direction change.
+Cloudflare Worker static-asset hosting is configured in [wrangler.jsonc](wrangler.jsonc). The Worker is named `sleek`; its static assets come from `dist`, with single-page application routing. No backend database, bindings, or game secrets are required.
+
+For a production release, squash merge the reviewed development branch into `main`, tag the release commit, and sync the development branch. From the release checkout:
+
+```sh
+npm ci
+npm test
+npx wrangler login
+npm run deploy
+```
+
+Login authorizes Wrangler through your browser and is only needed when credentials are absent or expired. `npm run deploy` typechecks, builds, and uploads the game to Cloudflare, then prints the deployment URL. It deploys the current local checkout, so select the intended release before running it. Pushing a branch to GitHub alone does not run this command; automatic deployments require a separate Cloudflare Git integration or CI configuration.
+
+For local verification, run `npm run build` followed by `npm run preview`. Deployments serve static files; player collections remain in each browser. For Cloudflare account and domain setup, see the [Workers static-assets guide](https://developers.cloudflare.com/workers/static-assets/get-started/).
