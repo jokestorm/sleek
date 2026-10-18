@@ -1,6 +1,6 @@
 # Sleek
 
-A free case-opening game built with React, TypeScript, and Vite. Open the Origin Case, watch the reel settle, and keep an original finish with its own float and visible wear.
+A free case-opening game built with React, TypeScript, and Vite. Open the Origin Case, watch the reel settle, and keep an original finish with its own float and visible wear. Nice.
 
 ## Agreed gameplay
 
