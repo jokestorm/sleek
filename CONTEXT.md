@@ -1,18 +1,23 @@
 # Sleek
 
-A clicker about earning gold and growing a workshop over repeated runs.
+A browser case-opening game. The Origin Case is infinitely free during this demo. Currency and costs are future work.
 
 ## Language
 
-**Earner**:
-A dependable source of gold, owned in quantities and grouped by type. Buying adds one earner; upgrading a type doubles the output of all its current and future earners.
-_Avoid_: Maker, generator
+**Case**: A named loot catalog and its independent rarity weights.
 
-**Earner type**:
-A family of earners with a shared purchase price curve, income rate, and upgrade level.
+**Rarity**: A weighted tier selected before choosing an item. Its probability does not depend on item count.
 
-**Production**:
-Gold earned per active second from owned earners, including type upgrades and legacy bonuses.
+**Finish / loot item**: A catalog entry combining an original weapon archetype, paint appearance, and rarity.
 
-**Legacy**:
-Permanent progress awarded by prestige and carried into subsequent runs.
+**Drop / owned item**: A unique awarded instance with immutable item and rarity snapshots, float, wear seed, timestamp, and instance ID. Duplicate finishes do not stack.
+
+**Float**: An independent uniform value in `[0, 1)`, rolled once per drop. Higher values produce more visible wear.
+
+**Condition**: A label derived from float using Sleek's documented thresholds. It never changes with time.
+
+**Wear seed**: An independent value fixing the placement of visible scratches and chips.
+
+**Opening reel**: A cosmetic animation revealing a previously saved drop. Skipping or interrupting it never rerolls the result.
+
+**Collection / inventory**: Browser-local IndexedDB storage containing individual drops. No account, trading, or cash value exists in the demo.

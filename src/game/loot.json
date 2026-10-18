@@ -1,0 +1,25 @@
+{
+  "id": "origin",
+  "name": "Origin Case",
+  "rarities": [
+    { "id": "common", "name": "Common", "color": "#8da5b8", "weight": 7500 },
+    { "id": "uncommon", "name": "Uncommon", "color": "#609df5", "weight": 1800 },
+    { "id": "rare", "name": "Rare", "color": "#b17cf7", "weight": 500 },
+    { "id": "epic", "name": "Epic", "color": "#ed6cb5", "weight": 150 },
+    { "id": "legendary", "name": "Legendary", "color": "#f4bf58", "weight": 50 }
+  ],
+  "items": [
+    { "id": "pistol-blueprint", "name": "Blueprint", "weapon": "Sidearm", "rarity": "common", "art": "pistol", "colors": { "primary": "#5f9bb8", "secondary": "#c0d9df" } },
+    { "id": "rifle-static", "name": "Static", "weapon": "Carbine", "rarity": "common", "art": "rifle", "colors": { "primary": "#8897a3", "secondary": "#d1d9dd" } },
+    { "id": "sniper-drift", "name": "Drift", "weapon": "Longshot", "rarity": "common", "art": "sniper", "colors": { "primary": "#84a8a3", "secondary": "#cad9c3" } },
+    { "id": "pistol-signal", "name": "Signal", "weapon": "Sidearm", "rarity": "uncommon", "art": "pistol", "colors": { "primary": "#4785ed", "secondary": "#9ed8fa" } },
+    { "id": "rifle-current", "name": "Current", "weapon": "Carbine", "rarity": "uncommon", "art": "rifle", "colors": { "primary": "#36b1c3", "secondary": "#b7e5f6" } },
+    { "id": "sniper-moonwake", "name": "Moonwake", "weapon": "Longshot", "rarity": "rare", "art": "sniper", "colors": { "primary": "#8b74d7", "secondary": "#e2c3fa" } },
+    { "id": "rifle-afterimage", "name": "Afterimage", "weapon": "Carbine", "rarity": "rare", "art": "rifle", "colors": { "primary": "#9e5cdd", "secondary": "#6fdbed" } },
+    { "id": "pistol-orchid", "name": "Orchid", "weapon": "Sidearm", "rarity": "rare", "art": "pistol", "colors": { "primary": "#b56fdd", "secondary": "#e8bcf5" } },
+    { "id": "rifle-nova", "name": "Nova", "weapon": "Carbine", "rarity": "epic", "art": "rifle", "colors": { "primary": "#e65c9c", "secondary": "#ffbc9b" } },
+    { "id": "sniper-solstice", "name": "Solstice", "weapon": "Longshot", "rarity": "epic", "art": "sniper", "colors": { "primary": "#d56ea6", "secondary": "#f8d19c" } },
+    { "id": "knife-aurora", "name": "Aurora", "weapon": "Talon", "rarity": "legendary", "art": "knife", "colors": { "primary": "#57d0bf", "secondary": "#deb5f5" } },
+    { "id": "knife-daybreak", "name": "Daybreak", "weapon": "Talon", "rarity": "legendary", "art": "knife", "colors": { "primary": "#eebc66", "secondary": "#f38a80" } }
+  ]
+}

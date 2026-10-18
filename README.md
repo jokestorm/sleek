@@ -1,101 +1,93 @@
 # Sleek
 
-A browser clicker about turning a handful of earners into a growing gold income.
+A free case-opening game built with React, TypeScript, and Vite. Open the Origin Case, watch the reel settle, and keep an original finish with its own float and visible wear.
+
+## Agreed gameplay
+
+- One case, unlimited free openings. Currency and case costs come later.
+- A roughly five-second reel with ticking audio, a reveal chord, Skip, and mute.
+- Five rarity tiers. Roll the rarity first, then choose uniformly among its items.
+- Every drop is a separate inventory instance. Duplicate finishes never stack.
+- Each drop independently receives a uniform float in `[0, 1)` and a wear-pattern seed. Both stay fixed forever.
+- Browser-local IndexedDB collection, newest first. No account or server required.
+- Previous clicker saves are not migrated.
+
+The winner is saved before its animation starts. Skip, resizing, hiding the tab, and reduced motion reveal the same saved winner. Reloading restores the latest awarded item. Decorative reel cards use the normal rarity distribution; rare near misses are not deliberately inserted.
+
+## Edit the loot table
+
+Edit [src/game/loot.json](src/game/loot.json). Rarity weights total **10,000**. They are independent of the number of items in each tier.
+
+| Rarity | Weight | Drop chance |
+| --- | ---: | ---: |
+| Common | 7500 | 75% |
+| Uncommon | 1800 | 18% |
+| Rare | 500 | 5% |
+| Epic | 150 | 1.5% |
+| Legendary | 50 | 0.5% |
+
+These are chosen Sleek demo odds, not Counter-Strike odds. Changing the number of Common items changes each Common item's share of the 75%, without changing the 75% itself. Every tier must have at least one item. Invalid JSON, duplicate IDs, bad colors, unknown tiers, invalid weights, or empty tiers produce a visible configuration error rather than silently changing probabilities.
+
+Add an item to the `items` array:
+
+```json
+{
+  "id": "rifle-example",
+  "name": "Example",
+  "weapon": "Carbine",
+  "rarity": "rare",
+  "art": "rifle",
+  "colors": { "primary": "#9e5cdd", "secondary": "#6fdbed" }
+}
+```
+
+Built-in artwork choices are `pistol`, `rifle`, `sniper`, and `knife`. Primary color shifts the painted finish. Secondary color is reserved for future finish details. For your own artwork, add a transparent PNG under `public/art/` and set optional `"image": "/art/example.png"`. Keep `art` as the fallback archetype. All item IDs must be unique lowercase identifiers. Local custom image files must exist; catalog validation checks paths, not image contents.
+
+Existing inventory keeps full item and rarity snapshots. Removing or editing a catalog entry affects future drops, without altering already collected items.
+
+## Float and visible wear
+
+| Condition | Float range |
+| --- | --- |
+| Factory New | 0–0.07 |
+| Minimal Wear | 0.07–0.15 |
+| Field-Tested | 0.15–0.38 |
+| Well-Worn | 0.38–0.45 |
+| Battle-Scarred | 0.45–1 |
+
+Ranges include the lower endpoint and exclude the upper endpoint. These are chosen Sleek condition bands. Float uses its full stored precision; the interface displays six decimal places. Higher floats produce more deterministic scratches and chips clipped to the artwork, plus reduced paint saturation. Items never wear down over time. Inspect a collection item for a larger view.
+
+## Saves and controls
+
+IndexedDB stores individual drops and collection counters atomically. Awarding an existing instance ID twice is idempotent. Cursor pagination keeps the initial collection read at 24 items. Additional items are available through Load more. Mute persists in localStorage.
+
+If browser collection storage is unavailable, a visible notice explains that new drops only last for the current tab. Clearing browser data deletes the collection. No cross-browser sync or old-save migration exists. This free demo has no cash value.
+
+Reduced motion skips the reel. Buttons support keyboard navigation, dialogs support Escape, and results use a polite live announcement. Sound initializes from an opening click and respects mute and browser audio restrictions.
 
 ## Development
 
-Use Node.js 22.18+ or a newer supported release.
+Requires Node 22.18 or newer.
 
 ```sh
 npm install
 npm run dev
+npm test
+npm run build
+npm run preview
 ```
 
-- `npm run build`: typecheck and build the frontend into `dist/`.
-- `npm test`: run the focused game-rule and save tests.
-- `npm run simulate -- 24 2 3`: simulate 24 active hours, two clicks per second, and decisions every three seconds.
-- `npm run preview`: serve the production build locally.
-- `npm run deploy`: build and deploy to Cloudflare Workers.
+Core rules live in `src/game/loot.ts`; storage lives in `src/game/inventory.ts`. The interface is in `src/main.tsx`, the reel in `src/components/OpeningReel.tsx`, wear in `src/components/ItemArt.tsx`, and sound in `src/audio.ts`.
 
-Optional browser workflow checks use an existing Playwright installation and a dev server on port 5174:
+Core tests control random draws to check rarity boundaries, item-count invariance, uniform item selection, float bands, independent draws, snapshots, catalog validation, and winning reels. Browser checks exercise real openings, interruption paths, native persistence, duplicate instances, visible wear stability, and responsive layouts:
 
 ```sh
-node scripts/browser-check.mjs /absolute/path/to/@playwright/test/index.mjs
+# With Vite running on port 5174 and Playwright/Chromium available:
+BASE_URL=http://localhost:5174 node scripts/browser-check.mjs /absolute/path/to/@playwright/test/index.mjs
 ```
 
-Omit the module path if Playwright is installed in this project. `BASE_URL` overrides the local URL.
+See [research](docs/research/case-opening.md) for primary-source findings and deliberate differences from Counter-Strike. Original artwork was generated with the built-in imagegen tool; exact prompts and provenance are in [art prompts](docs/art-prompts.md). Older clicker research documents are historical and do not describe the current game.
 
-`src/main.tsx` owns the React screen and browser lifecycle. `src/style.css` defines the presentation. `src/game/game.ts` contains rules and balance values; `src/game/save.ts` handles the current save format. Tests live beside the game rules. Use two-space indentation, camelCase functions, and PascalCase components and types.
+## Deployment
 
-## The Loop
-
-1. Click to make gold.
-2. Buy earners for automatic income.
-3. Upgrade a type to double all its earners.
-4. Discover more types through lifetime earnings.
-5. Prestige for a permanent bonus and a fresh run.
-
-An earner type has an owned count and an upgrade level. Its row shows income per earner, combined income, and the prices for Buy one and Double output. Upgrades also apply to future purchases of that type. There is no individual unit management or capacity limit.
-
-Earners produce steadily while the game is active. They do not age, fail, drain gold, or need repairs. There are no slots, combining, retirement, or reliability upgrades. Buying more and upgrading the type are the two earner actions.
-
-## Earners and Balance
-
-| Type | Lifetime gold to unlock | First purchase | Base gold/sec each |
-| --- | ---: | ---: | ---: |
-| Starter | 0 | 15 | 1 |
-| Dynamo | 150 | 100 | 5 |
-| Clockwork | 1,000 | 750 | 25 |
-| Prism | 100,000 | 50,000 | 1,000 |
-| Stellar | 10 million | 5 million | 75,000 |
-| Singularity | 1 billion | 500 million | 5 million |
-| Aurora | 1e14 | 2.5e13 | 1e11 |
-| Continuum | 1e20 | 2.5e19 | 1e17 |
-| Genesis | 1e28 | 2.5e27 | 1e25 |
-
-All numeric values are experimental balance choices. Spending gold never reverses an unlock. The next-earner panel follows the next lifetime threshold in order.
-
-Each additional purchase costs the base price multiplied by `1.15 ^ owned`, rounded up. An upgrade doubles the output of every owned earner of that type and every future purchase. The upgrade price is `base price × 10 × owned × 4 ^ upgrade level`, rounded up. Each type supports up to 50 upgrades.
-
-Total output for a type is `base gold/sec × owned × 2 ^ upgrade level × legacy multiplier`. The screen previews combined output after the next upgrade. There is no separate research layer or individual detail panel.
-
-## Active Play and Optional Orders
-
-Every click grants base gold plus 5% of current production. Choose one click specialization per run: stronger clicks add base gold to each click, while the tenth-click path grants a periodic bonus. Further purchases level the chosen path.
-
-Optional orders unlock at 250 lifetime gold. Complete either the click goal or the gold goal and claim a gold reward; both goals then refresh together. Orders do not change production. New gold targets and rewards use a snapshot of production when the round starts.
-
-## Prestige and Records
-
-Prestige unlocks after 100,000 gold earned during a run. It grants `floor(log10(run earned / 100000)) + 1` legacy points. Each point permanently adds 15% to earner production and base click gold.
-
-Prestige resets spendable gold, owned counts, type upgrades, click specialization, order progress, and active duration. Lifetime earnings, unlocked types, legacy points, and records remain. A confirmation shows the reset and reward.
-
-Submitting a run records retained gold rounded down and freezes gameplay. Records also show active duration and how the run ended. The archive keeps the current completed run and the best 19 previous records. Runs end voluntarily; there is no insolvency system.
-
-## Saving and Pausing
-
-The current game saves automatically in this browser. Manual pause, hidden tabs, and Run & settings dialogs stop production. Returning grants no offline progress. Manual pause itself is not retained after reload.
-
-This simpler game starts fresh and does not migrate earlier experimental saves. Current saves use the `sleek.workshop.v1` key. Run & settings offers export and restore for backups of the current format. Invalid imports keep the current run intact. There are no accounts or cloud sync.
-
-## Validation
-
-Nine focused rule tests cover grouped purchases, upgrades applying to current and future earners, constant production, affordability, discovery, current saves, click paths, orders, prestige, and submitted scores. The Chromium workflow script also checks real initial clicking, type-wide upgrades, counts beyond the former slot limit, pause, save management, and phone/tablet/desktop layouts.
-
-`scripts/simulate.ts` uses the same rule functions as the interface and never injects gold. Its first minute uses two clicks per second; subsequent input follows the supplied click rate and management interval. An interval of zero stops management after that minute. For example:
-
-```sh
-npm run simulate -- 24 0.02 30
-npm run simulate -- 24 0 0
-```
-
-Earlier research and historical balance results remain in `docs/research/`. The newest playtesting section describes the count-based model. Those automated results assess reachability and reliable production; they do not establish human enjoyment or retention.
-
-## Hosting and Git Workflow
-
-React, TypeScript, and Vite run gameplay entirely in the browser. Cloudflare Workers serves static assets using `wrangler.jsonc`. Public leaderboards and accounts remain future work.
-
-For Cloudflare's Git integration, use `npm run build` as the build command and `npx wrangler deploy` as the deploy command. The Worker name is `sleek`.
-
-Confirm core features before committing. At release checkpoints, squash merge into `main`, tag the release, and sync the development branch. Production deployments track `main`.
+Cloudflare Worker static-asset hosting is configured in `wrangler.jsonc`. `npm run deploy` builds and deploys using Wrangler credentials. Production tracks `main`; work on a development branch and review before merging. No deployment is part of this direction change.
