@@ -1,14 +1,14 @@
 # Planned game features
 
-These are requested future directions, separate from the implemented game in [README](../README.md). The demo currently uses 2D inspection and browser-local inventory. This plan adds no backend or 3D dependency yet.
+These are requested directions and their implementation status. [README](../README.md) describes the implemented game. The demo now has 3D inspection for built-in items and browser-local inventory; the shared feed and economy remain future work.
 
-## 360-degree item inspection
+## 360-degree item inspection: implemented
 
-Let players drag or swipe to rotate a weapon through a full 360 degrees, with zoom and a reset-view control. Keep the item's rarity, condition, and precise float visible alongside the viewer.
+Players can drag or swipe to rotate built-in weapons through a full 360 degrees, zoom, reset, and use keyboard controls. Rarity, condition, and float remain visible alongside the viewer. Three.js and four original solid models load on demand; graphics failures and custom artwork retain a 2D fallback.
 
-This needs original 3D weapon assets and material information for every supported archetype. The model must show the same finish and deterministic wear as the owned instance. Rotating the current flat PNG is not a substitute for inspecting its other side. Custom catalog artwork will keep a 2D fallback when no compatible model exists.
+The initial models are procedural interpretations of the weapon archetypes. Paint materials use the owned instance's colors, float, and wear seed. They are not exact reconstructions of the generated PNGs, and their surface wear has a different projection from the 2D overlays.
 
-Choose a model format, renderer, material pipeline, and asset budget when implementation starts. Load the viewer on demand so opening cases stays fast. Verify touch and keyboard controls, full rotation, consistent wear after reload, and a usable fallback on devices without supported graphics.
+Remaining refinements include authored model assets, closer alignment of 2D/3D appearance, and a catalog model format for custom finishes. See [inspection implementation](inspection.md) for controls, model construction, resource handling, and validation.
 
 ## Live opening log
 

@@ -22,8 +22,10 @@ A browser case-opening game. The Origin Case is infinitely free during this demo
 
 **Collection / inventory**: Browser-local IndexedDB storage containing individual drops. No account, trading, or cash value exists in the demo.
 
+**Inspection**: An interactive 360-degree view of an original built-in 3D model using the owned item's colors, float, and wear seed, with a 2D artwork view for custom finishes and graphics fallback.
+
 ## Current scope
 
-The shipped demo has one case, five rarity tiers with fixed weights, original weapon-inspired finishes, an opening reel with Skip and optional sound, contents and odds inspection, and a persistent collection with confirmed item deletion and clearing. The catalog lives in `src/game/loot.json`; README defines its editing rules and the chosen condition thresholds.
+The shipped demo has one case, five rarity tiers with fixed weights, original weapon-inspired finishes, an opening reel with Skip and optional sound, contents and odds inspection, 360-degree item inspection, and a persistent collection with confirmed item deletion and clearing. The catalog lives in `src/game/loot.json`; README defines its editing rules and the chosen condition thresholds.
 
-Currency, earning methods, case costs, 360-degree 3D inspection, and a real-time feed of other players' openings are future work. See `docs/roadmap.md` for the inspection and feed scope. The earlier clicker economy is retired; its research is preserved under `docs/archive/`.
+Currency, earning methods, case costs, and a real-time feed of other players' openings are future work. See `docs/roadmap.md` for the remaining scope and `docs/inspection.md` for the current procedural models and their differences from 2D artwork. The earlier clicker economy is retired; its research is preserved under `docs/archive/`.

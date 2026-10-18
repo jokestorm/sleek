@@ -12,6 +12,7 @@ A free case-opening game built with React, TypeScript, and Vite. Open the Origin
 - Each drop independently receives a uniform float in `[0, 1)` and a wear-pattern seed. Both stay fixed forever.
 - Browser-local IndexedDB collection, newest first. No account or server required.
 - Individual item deletion and Clear inventory, both with confirmation.
+- 360° inspection for built-in items, with original 3D models, zoom, and a 2D artwork toggle.
 - Previous clicker saves are not migrated.
 
 The winner is saved before its animation starts. Skip, resizing, hiding the tab, and reduced motion reveal the same saved winner. Reloading restores the latest awarded item. Decorative reel cards use the normal rarity distribution; rare near misses are not deliberately inserted.
@@ -69,6 +70,14 @@ If browser collection storage is unavailable, a visible notice explains that new
 
 Reduced motion skips the reel. Buttons support keyboard navigation, dialogs support Escape, and results use a polite live announcement. Sound initializes from an opening click and respects mute and browser audio restrictions.
 
+## Inspect items in 3D
+
+Click a collection item or Inspect finish to open its 3D model. Drag or swipe to rotate through 360 degrees, scroll or pinch to zoom, and use Reset view to restore the initial framing. Focus the model to use arrow keys, `+` / `-`, and `R`. Switch to 2D artwork at any time.
+
+The four built-in weapon types have original solid models with painted and metal surfaces. Their materials use the owned item's colors, float, and stable wear seed. These are 3D interpretations of the built-in archetypes, not exact reconstructions of the PNG illustrations; scratch projection differs between 2D and 3D. Custom artwork remains in 2D until a compatible model is supplied.
+
+The renderer loads only when inspection opens, draws on demand, and releases its graphics resources when closed. Devices without supported WebGL, failed initialization, or lost graphics contexts fall back to the original artwork. See [inspection](docs/inspection.md) for model details, controls, and validation limits.
+
 ## Reveal effects and sounds
 
 Common drops have a restrained reveal. Higher rarities add a stronger glow, expanding ring, more particles, a larger arrival effect, and additional musical layers. Legendary drops get the strongest celebration. Intensity follows rarity weights in the catalog; cosmetic effects never change drop odds or the saved winner. Factory New items also receive a small condition badge. Restoring a saved item does not replay its celebration, and reduced motion disables animated reveal effects.
@@ -100,7 +109,7 @@ npm run build
 npm run preview
 ```
 
-Core rules live in `src/game/loot.ts`; storage lives in `src/game/inventory.ts`. The interface is in `src/main.tsx`, the reel in `src/components/OpeningReel.tsx`, wear in `src/components/ItemArt.tsx`, celebration effects in `src/components/RevealEffects.tsx`, and sound in `src/audio.ts` with configuration in `src/audio.json`.
+Core rules live in `src/game/loot.ts`; storage lives in `src/game/inventory.ts`. The interface is in `src/main.tsx`, the reel in `src/components/OpeningReel.tsx`, wear in `src/components/ItemArt.tsx`, celebration effects in `src/components/RevealEffects.tsx`, and sound in `src/audio.ts` with configuration in `src/audio.json`. `src/components/ItemInspection.tsx` loads the renderer and models in `src/inspection/` on demand.
 
 Core tests control random draws to check rarity boundaries, item-count invariance, uniform item selection, float bands, independent draws, snapshots, catalog validation, and winning reels. Browser checks exercise real openings, interruption paths, native persistence, duplicate instances, visible wear stability, and responsive layouts:
 
@@ -109,21 +118,23 @@ Core tests control random draws to check rarity boundaries, item-count invarianc
 BASE_URL=http://localhost:5174 node scripts/browser-check.mjs /absolute/path/to/@playwright/test/index.mjs
 BASE_URL=http://localhost:5174 node scripts/reveal-check.mjs /absolute/path/to/@playwright/test/index.mjs
 BASE_URL=http://localhost:5174 node scripts/inventory-check.mjs /absolute/path/to/@playwright/test/index.mjs
+BASE_URL=http://localhost:5174 node scripts/inspection-check.mjs /absolute/path/to/@playwright/test/index.mjs
 ```
 
 The reveal check forces each tier through real openings, checks reduced motion and restoration, and loads a test WAV to verify custom playback and mute.
 
 The inventory check covers confirmation cancellation, deleting a specific duplicate, clearing, pagination and counters after deletion, subsequent openings, and session-only storage.
 
+The inspection check renders all four models and verifies full rotation, zoom/reset, keyboard and pointer input, touch gestures, stable wear, custom-artwork fallback, graphics failure handling, and mobile framing.
+
 See [research](docs/research/case-opening.md) for primary-source findings and deliberate differences from Counter-Strike, and [playtesting](docs/research/case-playtesting.md) for validation results and limits. Original artwork was generated with the built-in imagegen tool; exact prompts and provenance are in [art prompts](docs/art-prompts.md). Fonts are bundled locally with their licenses. [Archived clicker documents](docs/archive/README.md) preserve the earlier design and do not describe the current game.
 
 ## Future plans
 
-- A 3D inspection view: rotate the actual weapon model through 360 degrees while preserving that instance's finish, float, and wear.
 - A live opening log: see other players' case-opening results as they happen.
 - Currency, a way to earn it, and case costs.
 
-These are planned features. Current inspection uses 2D artwork, and collections remain browser-local. The [roadmap](docs/roadmap.md) records what the 3D viewer and shared feed need before implementation.
+These are planned features; collections remain browser-local. The [roadmap](docs/roadmap.md) records the implemented inspection scope and remaining shared-feed and economy work.
 
 ## Deployment
 

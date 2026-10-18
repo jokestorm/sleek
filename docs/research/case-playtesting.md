@@ -42,3 +42,11 @@ A real PCM WAV fixture loaded through the sound configuration was decoded and pl
 Six focused checks in `scripts/inventory-check.mjs` passed alongside the existing 13 browser workflows, with zero page errors. A 30-item native IndexedDB collection verified full-count confirmation, initial Cancel focus, cancellation by button and Escape, instance-specific deletion among identical finishes, inspection-dialog deletion, page backfilling, and persistence after reload.
 
 The checks also verified idempotent repeated deletion, accurate rarity counts, new openings after deletion from an older collection without a sequence counter, complete clearing across all pages, clearing the displayed result, and opening again after a reset. Dialogs fit at 320, 390, and 768 pixels. A separate browser profile with blocked IndexedDB verified deletion and clearing of session-only drops. Core tests and the production build passed.
+
+## 360-degree inspection follow-up
+
+Seven focused checks in `scripts/inspection-check.mjs` passed alongside the existing 13 opening workflows and six inventory-management checks, with zero page errors. All four original models rendered in Chromium software graphics. Full horizontal orbits returned to the starting orientation; keyboard rotation, pointer dragging, zoom/reset, switching between 3D and 2D, and closing inspection worked. Browser touch events exercised one-finger orbit and two-finger pinch zoom.
+
+Inspection fit 320, 390, and 768 pixel viewports. Saved float and wear seed survived reload; regenerated paint textures were identical for the same instance and changed with wear. Custom artwork stayed in 2D. Missing WebGL and a lost graphics context both produced a usable 2D fallback. The 3D module was not requested before opening inspection. Visual review refined pale paint lighting, blade surface visibility, and model-based camera framing.
+
+Core tests and production build passed. Vite reports the separate 3D chunk above its 500 kB uncompressed advisory threshold; the approximately 151 kB gzipped chunk is loaded only for inspection. No physical-device, Safari, or Firefox validation is claimed. See [inspection details](../inspection.md) for model limitations and rendering decisions.

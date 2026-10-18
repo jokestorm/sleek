@@ -1,0 +1,115 @@
+import assert from 'node:assert/strict';
+import {mkdir} from 'node:fs/promises';
+const {chromium,expect:baseExpect}=await import(process.argv[2]||'@playwright/test');
+const expect=baseExpect.configure({timeout:20000});
+const browser=await chromium.launch({headless:true,args:['--enable-unsafe-swiftshader']});
+const baseUrl=process.env.BASE_URL||'http://localhost:5174';
+const errors=[],checks=[];
+await mkdir('/tmp/sleek-inspection',{recursive:true});
+try{
+  const context=await browser.newContext({viewport:{width:1280,height:1000}});
+  const page=await context.newPage();page.on('pageerror',error=>errors.push(error.message));
+  const requests=[];page.on('request',request=>requests.push(request.url()));
+  await page.goto(baseUrl);await expect(page.getByRole('button',{name:'Open case',exact:true})).toBeEnabled();
+  assert.equal(requests.some(url=>url.includes('ItemViewer3D')),false,'3D must load only on inspection');
+  const fixtures=await page.evaluate(async()=>{
+    const {rollInstance,validateCatalog}=await import('/src/game/loot.ts');
+    const {awardItem}=await import('/src/game/inventory.ts');
+    const catalog=validateCatalog((await import('/src/game/loot.json')).default).catalog;
+    const fixtures=[];
+    for(const art of ['pistol','rifle','sniper','knife']){
+      const item=catalog.items.find(item=>item.art===art);
+      const drop=rollInstance(catalog,{randomInt:()=>0,instanceId:`inspect-${art}`});
+      drop.item=structuredClone(item);drop.rarity=structuredClone(catalog.rarities.find(rarity=>rarity.id===item.rarity));
+      drop.float=.24;drop.condition='Field-Tested';drop.wearSeed=12345;await awardItem(drop);fixtures.push(drop);
+    }
+    return fixtures;
+  });
+  await page.reload();
+  for(const fixture of fixtures){
+    await page.locator(`[data-testid="inventory-card"][data-instance-id="${fixture.instanceId}"]`).click();
+    const canvas=page.getByTestId('inspection-canvas');await expect(canvas).toHaveAttribute('data-ready','true');
+    await expect(canvas).toHaveAttribute('data-wear-signature',`${fixture.item.id}:${fixture.float}:${fixture.wearSeed}`);
+    await page.locator('.item-inspection-dialog').screenshot({path:`/tmp/sleek-inspection/${fixture.item.art}.png`});
+    const angle=Number(await canvas.getAttribute('data-view-angle'));
+    await page.getByRole('button',{name:'Rotate right',exact:true}).click();
+    assert.notEqual(Number(await canvas.getAttribute('data-view-angle')),angle);
+    for(let i=0;i<11;i++)await page.getByRole('button',{name:'Rotate right',exact:true}).click();
+    assert.ok(Math.abs(Number(await canvas.getAttribute('data-view-angle'))-angle)<.002,'Full 360-degree orbit should return to its starting view');
+    const distance=Number(await canvas.getAttribute('data-view-distance'));
+    await page.getByRole('button',{name:'Zoom in',exact:true}).click();
+    assert.ok(Number(await canvas.getAttribute('data-view-distance'))<distance);
+    await page.getByRole('button',{name:'Reset view',exact:true}).click();
+    assert.ok(Math.abs(Number(await canvas.getAttribute('data-view-distance'))-distance)<.002);
+    await page.locator('.viewer-stage').focus();await page.keyboard.press('ArrowLeft');
+    assert.notEqual(Number(await canvas.getAttribute('data-view-angle')),angle);
+    await page.getByRole('button',{name:'2D artwork',exact:true}).click();
+    await expect(canvas).toHaveCount(0);await expect(page.locator('.inspection-fallback img')).toBeVisible();
+    await page.getByRole('button',{name:'3D view',exact:true}).click();await expect(canvas).toHaveAttribute('data-ready','true');
+    await page.keyboard.press('Escape');await expect(canvas).toHaveCount(0);
+  }
+  checks.push('All four original models render; lazy loading, full orbit, keyboard controls, zoom, reset, 2D toggle, and dialog cleanup work');
+  await page.locator('[data-testid="inventory-card"][data-instance-id="inspect-pistol"]').click();
+  const canvas=page.getByTestId('inspection-canvas');await expect(canvas).toHaveAttribute('data-ready','true');
+  await canvas.scrollIntoViewIfNeeded();
+  const box=await canvas.boundingBox();const before=await canvas.getAttribute('data-view-angle');
+  await page.mouse.move(box.x+box.width*.4,box.y+box.height*.5);await page.mouse.down();await page.mouse.move(box.x+box.width*.7,box.y+box.height*.6,{steps:12});await page.mouse.up();
+  await expect.poll(()=>canvas.getAttribute('data-view-angle')).not.toBe(before);
+  for(const width of [320,390,768]){
+    await page.setViewportSize({width,height:900});
+    await expect(canvas).toHaveAttribute('data-ready','true');
+    assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1));
+    await expect.poll(async()=>{const bounds=await canvas.boundingBox();return !!bounds&&bounds.width>0&&bounds.x>=0&&bounds.x+bounds.width<=width+1;}).toBe(true);
+    await page.locator('.item-inspection-dialog').screenshot({path:`/tmp/sleek-inspection/mobile-${width}.png`});
+  }
+  checks.push('Pointer drag changes the view; 320/390/768px inspection fits the viewport');
+  await page.setViewportSize({width:390,height:900});
+  await canvas.scrollIntoViewIfNeeded();
+  const touchBounds=await canvas.boundingBox();
+  const cdp=await context.newCDPSession(page);
+  await cdp.send('Emulation.setTouchEmulationEnabled',{enabled:true,maxTouchPoints:2});
+  const touchY=touchBounds.y+touchBounds.height*.5;
+  const touchX=touchBounds.x+touchBounds.width*.5;
+  const oldAngle=await canvas.getAttribute('data-view-angle');
+  await cdp.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{x:touchX-30,y:touchY,id:1}]});
+  for(let i=1;i<=6;i++)await cdp.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[{x:touchX-30+i*10,y:touchY,id:1}]});
+  await cdp.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});
+  await expect.poll(()=>canvas.getAttribute('data-view-angle')).not.toBe(oldAngle);
+  const oldZoom=Number(await canvas.getAttribute('data-view-distance'));
+  await cdp.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{x:touchX-25,y:touchY,id:1},{x:touchX+25,y:touchY,id:2}]});
+  for(let i=1;i<=6;i++)await cdp.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[{x:touchX-25-i*4,y:touchY,id:1},{x:touchX+25+i*4,y:touchY,id:2}]});
+  await cdp.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});
+  await expect.poll(async()=>Number(await canvas.getAttribute('data-view-distance'))).toBeLessThan(oldZoom);
+  checks.push('Browser touch events orbit with one finger and zoom with a two-finger pinch');
+  await canvas.evaluate(node=>node.dispatchEvent(new Event('webglcontextlost',{cancelable:true})));
+  await expect(page.locator('.inspection-fallback')).toContainText('3D is unavailable');
+  await expect(canvas).toHaveCount(0);await expect(page.locator('.inspection-fallback img')).toBeVisible();
+  checks.push('Lost graphics context releases the viewer and shows the original artwork');
+  await page.keyboard.press('Escape');await page.reload();
+  await page.locator('[data-testid="inventory-card"][data-instance-id="inspect-pistol"]').click();
+  await expect(page.getByTestId('inspection-canvas')).toHaveAttribute('data-wear-signature',`${fixtures[0].item.id}:.24:12345`.replace(':.24:',':0.24:'));
+  const wear=await page.evaluate(async instance=>{
+    const {createItemModel}=await import('/src/inspection/models.ts');
+    const signature=owned=>{const model=createItemModel(owned);let result='';model.model.traverse(object=>{const image=object.material?.map?.image;if(image)result=image.toDataURL();});model.dispose();return result;};
+    return {first:signature(instance),again:signature(instance),worn:signature({...instance,float:.92})};
+  },fixtures[0]);
+  assert.equal(wear.first,wear.again);assert.notEqual(wear.first,wear.worn);
+  checks.push('Stored float and wear seed survive reload; model paint texture is deterministic and responds to wear');
+  await page.keyboard.press('Escape');
+  await page.evaluate(async instance=>{const {awardItem}=await import('/src/game/inventory.ts');await awardItem({...instance,instanceId:'custom-image',item:{...instance.item,image:'/art/pistol.png'}});},fixtures[0]);
+  await page.reload();await page.locator('[data-testid="inventory-card"][data-instance-id="custom-image"]').click();
+  await expect(page.getByRole('button',{name:'3D view',exact:true})).toBeDisabled();
+  await expect(page.locator('.inspection-fallback img')).toBeVisible();
+  await expect(page.getByTestId('inspection-canvas')).toHaveCount(0);
+  checks.push('Custom artwork retains its 2D view rather than showing an unrelated built-in model');
+  await context.close();
+  const blocked=await browser.newContext();
+  await blocked.addInitScript(()=>{const original=HTMLCanvasElement.prototype.getContext;HTMLCanvasElement.prototype.getContext=function(type,...args){if(String(type).startsWith('webgl'))return null;return original.call(this,type,...args);};});
+  const fallback=await blocked.newPage();fallback.on('pageerror',error=>errors.push(error.message));await fallback.goto(baseUrl);
+  await fallback.getByRole('button',{name:'Open case',exact:true}).click();await fallback.getByRole('button',{name:'Skip animation',exact:true}).click();
+  await fallback.getByRole('button',{name:'Inspect finish',exact:false}).click();
+  await expect(fallback.locator('.inspection-fallback')).toContainText('3D is unavailable');
+  await expect(fallback.locator('.inspection-fallback img')).toBeVisible();
+  checks.push('Devices without WebGL retain usable 2D inspection');
+  await blocked.close();assert.deepEqual(errors,[]);console.log(JSON.stringify({checks,pageErrors:errors.length},null,2));
+}finally{await browser.close();}
