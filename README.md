@@ -139,6 +139,7 @@ BASE_URL=http://localhost:5174 node scripts/inspection-check.mjs /absolute/path/
 BASE_URL=http://localhost:5174 node scripts/feed-check.mjs /absolute/path/to/@playwright/test/index.mjs
 # Backend-only checks start an isolated local runtime automatically:
 node scripts/feed-backend-check.mjs
+node scripts/feed-read-check.mjs
 ```
 
 The reveal check forces each tier through real openings, checks reduced motion and restoration, and loads a test WAV to verify custom playback and mute.

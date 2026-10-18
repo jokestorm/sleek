@@ -5,5 +5,5 @@
     "types": ["@cloudflare/workers-types"],
     "resolveJsonModule": true
   },
-  "include": ["worker", "src/feed/protocol.ts", "src/game/loot.ts"]
+  "include": ["worker", "src/feed/protocol.ts", "src/game/loot.ts", "scripts/fixtures/feed-read-probe.ts"]
 }

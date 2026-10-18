@@ -1,7 +1,8 @@
 import { DurableObject } from 'cloudflare:workers';
 import catalogSource from '../src/game/loot.json';
 import { validateCatalog } from '../src/game/loot';
-import { createFeedEntry, feedHistoryLimit, parseProfile, parsePublication, publicationLifetime, type FeedEntry, type FeedMessage, type FeedProfile } from '../src/feed/protocol';
+import { createFeedEntry, feedHistoryLimit, parseProfile, parsePublication, type FeedEntry, type FeedMessage, type FeedProfile } from '../src/feed/protocol';
+import { initializeFeedStorage, storeOpening } from './feed-storage';
 
 interface Env { OPENING_FEED: DurableObjectNamespace<OpeningFeed>; ASSETS: Fetcher }
 type Session = { profile: FeedProfile | null; window: number; messages: number };
@@ -31,8 +32,7 @@ export default {
 export class OpeningFeed extends DurableObject<Env> {
   constructor(ctx: DurableObjectState, env: Env) {
     super(ctx, env);
-    ctx.storage.sql.exec('CREATE TABLE IF NOT EXISTS openings (sequence INTEGER PRIMARY KEY AUTOINCREMENT, eventId TEXT NOT NULL UNIQUE, payload TEXT NOT NULL)');
-    ctx.storage.sql.exec('CREATE TABLE IF NOT EXISTS seen (eventId TEXT PRIMARY KEY, playerId TEXT NOT NULL, publishedAt INTEGER NOT NULL)');
+    initializeFeedStorage(ctx.storage.sql);
     ctx.setWebSocketAutoResponse(new WebSocketRequestResponsePair('ping', 'pong'));
   }
   fetch(): Response {
@@ -67,18 +67,7 @@ export class OpeningFeed extends DurableObject<Env> {
     const profile = session.profile;
     const entry = checked.catalog ? createFeedEntry(publication, profile, checked.catalog, now) : null;
     if (!entry) { this.send(socket, { type: 'reject', id: publication.id, error: 'This opening is too old or no longer in the catalog.' }); return; }
-    let accepted: FeedEntry | null = null;
-    const duplicate = this.ctx.storage.transactionSync(() => {
-      const seen = [...this.ctx.storage.sql.exec<{ playerId: string }>('SELECT playerId FROM seen WHERE eventId = ?', publication.id)][0];
-      if (seen) return seen.playerId === profile.id ? 'same' : 'conflict';
-      const row = [...this.ctx.storage.sql.exec<{ sequence: number }>('INSERT INTO openings (eventId, payload) VALUES (?, ?) RETURNING sequence', publication.id, JSON.stringify(entry))][0];
-      accepted = { ...entry, sequence: row.sequence };
-      this.ctx.storage.sql.exec('INSERT INTO seen VALUES (?, ?, ?)', publication.id, profile.id, now);
-      this.ctx.storage.sql.exec('DELETE FROM openings WHERE sequence NOT IN (SELECT sequence FROM openings ORDER BY sequence DESC LIMIT ?)', feedHistoryLimit);
-      this.ctx.storage.sql.exec('DELETE FROM seen WHERE publishedAt < ?', now - publicationLifetime);
-      this.ctx.storage.sql.exec('DELETE FROM seen WHERE eventId NOT IN (SELECT eventId FROM seen ORDER BY publishedAt DESC, eventId DESC LIMIT 10000)');
-      return null;
-    });
+    const { duplicate, accepted } = this.ctx.storage.transactionSync(() => storeOpening(this.ctx.storage.sql, entry));
     if (duplicate === 'conflict') { this.send(socket, { type: 'reject', id: publication.id, error: 'This opening was already shared.' }); return; }
     this.send(socket, { type: 'ack', id: publication.id });
     if (accepted) for (const peer of this.ctx.getWebSockets()) this.send(peer, { type: 'entry', entry: accepted });
