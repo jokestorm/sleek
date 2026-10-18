@@ -6,11 +6,12 @@ A free case-opening game built with React, TypeScript, and Vite. Open the Origin
 
 - One case, unlimited free openings. Currency and case costs come later.
 - Twelve original finishes across four weapon-inspired artwork archetypes.
-- A roughly five-second reel with ticking audio, a reveal chord, Skip, and mute.
+- A roughly five-second reel with ticking audio, rarity-scaled reveal sounds and visual effects, Skip, and mute.
 - Five rarity tiers. Roll the rarity first, then choose uniformly among its items.
 - Every drop is a separate inventory instance. Duplicate finishes never stack.
 - Each drop independently receives a uniform float in `[0, 1)` and a wear-pattern seed. Both stay fixed forever.
 - Browser-local IndexedDB collection, newest first. No account or server required.
+- Individual item deletion and Clear inventory, both with confirmation.
 - Previous clicker saves are not migrated.
 
 The winner is saved before its animation starts. Skip, resizing, hiding the tab, and reduced motion reveal the same saved winner. Reloading restores the latest awarded item. Decorative reel cards use the normal rarity distribution; rare near misses are not deliberately inserted.
@@ -62,9 +63,30 @@ Ranges include the lower endpoint and exclude the upper endpoint. These are chos
 
 IndexedDB stores individual drops and collection counters atomically. Awarding an existing instance ID twice is idempotent. Cursor pagination keeps the initial collection read at 24 items. Additional items are available through Load more. Mute persists in localStorage.
 
+Use the × button on a collection card, or Delete item in its inspection dialog, to remove that specific instance. Clear inventory removes the whole collection. Both ask for confirmation, with Cancel selected initially. Deletions are permanent; duplicate copies are independent. Opening, deleting, and clearing are mutually exclusive while an operation is in progress. Deleting the displayed result also clears it from the opener; neither deleted items nor cleared collections return after reload. Sound settings stay intact.
+
 If browser collection storage is unavailable, a visible notice explains that new drops only last for the current tab. If storage fails after play has started, only already loaded items and new session drops are shown. Reloading retries storage access and discards unsaved session drops. Clearing browser data deletes the collection. Collections belong to the browser and site origin: localhost, a workers.dev address, and a custom domain have separate collections. No cross-browser sync or old-save migration exists. This free demo has no cash value.
 
 Reduced motion skips the reel. Buttons support keyboard navigation, dialogs support Escape, and results use a polite live announcement. Sound initializes from an opening click and respects mute and browser audio restrictions.
+
+## Reveal effects and sounds
+
+Common drops have a restrained reveal. Higher rarities add a stronger glow, expanding ring, more particles, a larger arrival effect, and additional musical layers. Legendary drops get the strongest celebration. Intensity follows rarity weights in the catalog; cosmetic effects never change drop odds or the saved winner. Factory New items also receive a small condition badge. Restoring a saved item does not replay its celebration, and reduced motion disables animated reveal effects.
+
+Built-in sounds are synthesized, so audio files are optional. To replace one:
+
+1. Add your MP3 or WAV file to `public/audio/`, for example `public/audio/legendary.mp3`.
+2. Edit [src/audio.json](src/audio.json):
+
+```json
+"reveal-legendary": { "src": "/audio/legendary.mp3", "volume": 0.8 }
+```
+
+3. Refresh during development. Rebuild and deploy to update the hosted game.
+
+Available keys are `open`, `tick`, `reveal-common`, `reveal-uncommon`, `reveal-rare`, `reveal-epic`, and `reveal-legendary`. Volume ranges from 0 to 1. Set `src` to `null` for built-in synthesis, or volume to 0 to silence that event. A custom clip replaces that event's built-in sound. If a clip is missing, unsupported, or still loading, synthesis plays immediately instead. A renamed rarity can use a matching `reveal-<id>` key.
+
+Trim leading silence and keep reel ticks short; tick playback is capped at 120 ms and other clips at five seconds. Mute stops active and scheduled sounds, and another opening clears the previous reveal. See [audio instructions](public/audio/README.md) for details.
 
 ## Development
 
@@ -78,16 +100,30 @@ npm run build
 npm run preview
 ```
 
-Core rules live in `src/game/loot.ts`; storage lives in `src/game/inventory.ts`. The interface is in `src/main.tsx`, the reel in `src/components/OpeningReel.tsx`, wear in `src/components/ItemArt.tsx`, and sound in `src/audio.ts`.
+Core rules live in `src/game/loot.ts`; storage lives in `src/game/inventory.ts`. The interface is in `src/main.tsx`, the reel in `src/components/OpeningReel.tsx`, wear in `src/components/ItemArt.tsx`, celebration effects in `src/components/RevealEffects.tsx`, and sound in `src/audio.ts` with configuration in `src/audio.json`.
 
 Core tests control random draws to check rarity boundaries, item-count invariance, uniform item selection, float bands, independent draws, snapshots, catalog validation, and winning reels. Browser checks exercise real openings, interruption paths, native persistence, duplicate instances, visible wear stability, and responsive layouts:
 
 ```sh
 # With Vite running on port 5174 and Playwright/Chromium available:
 BASE_URL=http://localhost:5174 node scripts/browser-check.mjs /absolute/path/to/@playwright/test/index.mjs
+BASE_URL=http://localhost:5174 node scripts/reveal-check.mjs /absolute/path/to/@playwright/test/index.mjs
+BASE_URL=http://localhost:5174 node scripts/inventory-check.mjs /absolute/path/to/@playwright/test/index.mjs
 ```
 
+The reveal check forces each tier through real openings, checks reduced motion and restoration, and loads a test WAV to verify custom playback and mute.
+
+The inventory check covers confirmation cancellation, deleting a specific duplicate, clearing, pagination and counters after deletion, subsequent openings, and session-only storage.
+
 See [research](docs/research/case-opening.md) for primary-source findings and deliberate differences from Counter-Strike, and [playtesting](docs/research/case-playtesting.md) for validation results and limits. Original artwork was generated with the built-in imagegen tool; exact prompts and provenance are in [art prompts](docs/art-prompts.md). Fonts are bundled locally with their licenses. [Archived clicker documents](docs/archive/README.md) preserve the earlier design and do not describe the current game.
+
+## Future plans
+
+- A 3D inspection view: rotate the actual weapon model through 360 degrees while preserving that instance's finish, float, and wear.
+- A live opening log: see other players' case-opening results as they happen.
+- Currency, a way to earn it, and case costs.
+
+These are planned features. Current inspection uses 2D artwork, and collections remain browser-local. The [roadmap](docs/roadmap.md) records what the 3D viewer and shared feed need before implementation.
 
 ## Deployment
 

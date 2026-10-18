@@ -30,3 +30,15 @@ The headless shell kept tabs visible, so the hidden-tab path used an explicit vi
 Inspected desktop, mobile, and a controlled same-finish comparison at floats 0.02 and 0.92. The worn item has additional exposed-metal marks and reduced saturation; wear stays clipped to its transparent silhouette. Original art remains readable at thumbnail size.
 
 Visual review caught a reload inconsistency: the result restored correctly while the idle reel returned to its preview. Startup now restores a static reel containing the latest saved winner, and browser checks assert restored pointer alignment. Custom artwork failures fall back to the original archetype for both artwork and wear masking.
+
+## Rarity reveal and custom audio follow-up
+
+The reveal refinement passed the existing 13 browser workflows and four focused checks in `scripts/reveal-check.mjs`, with zero page errors. Controlled UI openings exercised all five tiers, increasing effect intensity without changing the awarded tier or inventory count. Reload restored the result without replaying particles; reduced motion suppressed reveal effects; narrow layouts stayed within the viewport.
+
+A real PCM WAV fixture loaded through the sound configuration was decoded and played using AudioBufferSourceNode. Two events sharing a clip fetched it once. Mute stopped playback and blocked additional custom sounds. The production build and core tests passed. These checks verify scheduling and integration; they do not assess perceived audio quality.
+
+## Inventory management follow-up
+
+Six focused checks in `scripts/inventory-check.mjs` passed alongside the existing 13 browser workflows, with zero page errors. A 30-item native IndexedDB collection verified full-count confirmation, initial Cancel focus, cancellation by button and Escape, instance-specific deletion among identical finishes, inspection-dialog deletion, page backfilling, and persistence after reload.
+
+The checks also verified idempotent repeated deletion, accurate rarity counts, new openings after deletion from an older collection without a sequence counter, complete clearing across all pages, clearing the displayed result, and opening again after a reset. Dialogs fit at 320, 390, and 768 pixels. A separate browser profile with blocked IndexedDB verified deletion and clearing of session-only drops. Core tests and the production build passed.

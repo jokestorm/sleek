@@ -2,7 +2,7 @@ import { conditionForFloat, type OwnedItem } from './loot.ts';
 
 export const inventoryDatabase = 'sleek-cases';
 const databaseVersion = 1;
-type Stats = { key: 'stats'; total: number; byRarity: Record<string, number>; latestId: string | null };
+type Stats = { key: 'stats'; total: number; byRarity: Record<string, number>; latestId: string | null; lastSequence?: number };
 type StoredItem = OwnedItem & { sequence: number };
 export type InventoryPage = { items: OwnedItem[]; total: number; byRarity: Record<string, number> };
 let databasePromise: Promise<IDBDatabase> | null = null;
@@ -77,10 +77,58 @@ export async function awardItem(item: OwnedItem): Promise<void> {
         const stats: Stats = statsRequest.result ?? { key: 'stats', total: 0, byRarity: {}, latestId: null };
         const previousCount = Object.hasOwn(stats.byRarity, snapshot.rarity.id) ? stats.byRarity[snapshot.rarity.id] : 0;
         const total = stats.total + 1;
-        items.add({ ...snapshot, sequence: total } satisfies StoredItem);
-        meta.put({ key: 'stats', total, byRarity: { ...stats.byRarity, [snapshot.rarity.id]: previousCount + 1 }, latestId: snapshot.instanceId } satisfies Stats);
+        const sequence = (stats.lastSequence ?? stats.total) + 1;
+        items.add({ ...snapshot, sequence } satisfies StoredItem);
+        meta.put({ key: 'stats', total, byRarity: { ...stats.byRarity, [snapshot.rarity.id]: previousCount + 1 }, latestId: snapshot.instanceId, lastSequence: sequence } satisfies Stats);
       };
     };
+  });
+}
+
+async function changeInventory(change: (items: IDBObjectStore, meta: IDBObjectStore) => void): Promise<void> {
+  const database = await openDatabase();
+  return new Promise<void>((resolve, reject) => {
+    let transaction: IDBTransaction | undefined;
+    try {
+      transaction = database.transaction(['items', 'meta'], 'readwrite');
+      change(transaction.objectStore('items'), transaction.objectStore('meta'));
+    } catch (error) { transaction?.abort(); reject(storageError(error)); return; }
+    transaction.oncomplete = () => resolve();
+    transaction.onabort = () => reject(storageError(transaction.error));
+    transaction.onerror = () => reject(storageError(transaction.error));
+  });
+}
+
+// Delete only this instance; duplicate finishes keep their own identities and floats.
+export async function deleteItem(instanceId: string): Promise<void> {
+  await changeInventory((items, meta) => {
+    const itemRequest = items.get(instanceId);
+    itemRequest.onsuccess = () => {
+      const item: StoredItem | undefined = itemRequest.result;
+      if (!item) return;
+      const statsRequest = meta.get('stats');
+      statsRequest.onsuccess = () => {
+        const stats: Stats = statsRequest.result;
+        const byRarity = { ...stats.byRarity };
+        if (byRarity[item.rarity.id] > 1) byRarity[item.rarity.id]--;
+        else delete byRarity[item.rarity.id];
+        items.delete(instanceId);
+        const latest = items.index('sequence').openCursor(null, 'prev');
+        latest.onsuccess = () => meta.put({
+          key: 'stats', total: Math.max(0, stats.total - 1), byRarity,
+          latestId: latest.result?.value.instanceId ?? null,
+          // Preserve ordering after deletion, including databases saved before this field existed.
+          lastSequence: stats.lastSequence ?? stats.total,
+        } satisfies Stats);
+      };
+    };
+  });
+}
+
+export async function clearInventory(): Promise<void> {
+  await changeInventory((items, meta) => {
+    items.clear();
+    meta.put({ key: 'stats', total: 0, byRarity: {}, latestId: null, lastSequence: 0 } satisfies Stats);
   });
 }
 

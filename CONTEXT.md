@@ -24,6 +24,6 @@ A browser case-opening game. The Origin Case is infinitely free during this demo
 
 ## Current scope
 
-The shipped demo has one case, five rarity tiers with fixed weights, original weapon-inspired finishes, an opening reel with Skip and optional sound, contents and odds inspection, and a persistent collection. The catalog lives in `src/game/loot.json`; README defines its editing rules and the chosen condition thresholds.
+The shipped demo has one case, five rarity tiers with fixed weights, original weapon-inspired finishes, an opening reel with Skip and optional sound, contents and odds inspection, and a persistent collection with confirmed item deletion and clearing. The catalog lives in `src/game/loot.json`; README defines its editing rules and the chosen condition thresholds.
 
-Currency, earning methods, and case costs are future work. The earlier clicker economy is retired; its research is preserved under `docs/archive/`.
+Currency, earning methods, case costs, 360-degree 3D inspection, and a real-time feed of other players' openings are future work. See `docs/roadmap.md` for the inspection and feed scope. The earlier clicker economy is retired; its research is preserved under `docs/archive/`.
