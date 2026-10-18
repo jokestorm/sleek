@@ -300,14 +300,14 @@ try {
   const blockedPage = await blockedContext.newPage();
   blockedPage.on('pageerror', error => errors.push(error.message));
   await blockedPage.goto(baseUrl);
-  await expect(blockedPage.getByRole('status')).toHaveText(/Collection storage is unavailable/);
+  await expect(blockedPage.getByRole('status').filter({ hasText: 'Collection storage is unavailable' })).toHaveText(/Collection storage is unavailable/);
   await blockedPage.getByRole('button', { name: 'Open case', exact: true }).click();
   await expect(blockedPage.getByTestId('result-card')).toBeVisible();
   const firstSessionId = await cardId(blockedPage.getByTestId('result-card'));
   await blockedPage.getByRole('button', { name: 'Open again', exact: true }).click();
   await expect(blockedPage.getByTestId('inventory-card')).toHaveCount(2);
   assert.notEqual(await cardId(blockedPage.getByTestId('result-card')), firstSessionId);
-  await expect(blockedPage.getByRole('status')).toHaveText(/Drops will last for this tab only/);
+  await expect(blockedPage.getByRole('status').filter({ hasText: 'Collection storage is unavailable' })).toHaveText(/Drops will last for this tab only/);
   await blockedContext.close();
   check('Blocked IndexedDB reports session-only storage and preserves successive drops in the same tab');
   assert.deepEqual(errors, [], `Browser page errors: ${errors.join('; ')}`);

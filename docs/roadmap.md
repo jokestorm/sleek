@@ -1,6 +1,6 @@
 # Planned game features
 
-These are requested directions and their implementation status. [README](../README.md) describes the implemented game. The demo now has 3D inspection for built-in items and browser-local inventory; the shared feed and economy remain future work.
+These are requested directions and their implementation status. [README](../README.md) describes the implemented game. The demo has 3D inspection for built-in items, browser-local inventory, and a shared live opening feed. The authored-model pipeline and economy remain future work.
 
 ## 360-degree item inspection: implemented
 
@@ -10,13 +10,15 @@ The initial models are procedural interpretations of the weapon archetypes. Pain
 
 Remaining refinements include authored model assets, closer alignment of 2D/3D appearance, and a catalog model format for custom finishes. See [inspection implementation](inspection.md) for controls, model construction, resource handling, and validation.
 
-## Live opening log
+The planned asset workflow uses the model and finish materials as the source, automatically generating 2D previews with optional manual overrides. Float must visibly drive 3D surface wear, with deterministic patterns from the instance's wear seed. Owned-item thumbnails must use the same wear rendering as inspection. Proposed paths, preview caching, and the open material/mask decisions are recorded in the [model and preview plan](inspection.md#planned-model-and-preview-workflow).
 
-Show other players' real case-opening results in a compact live feed. Entries should identify the player, item, rarity, condition, float, and opening time. The feed should update without interrupting the local reel or stealing scroll position.
+## Live opening log: implemented
 
-Real shared results require a backend event stream; the current static site and local inventory cannot provide them. Decide how players are identified and how openings are published when this feature is built. Publish each completed reveal once, so the feed does not spoil an item before its owner sees it. Use a stable event ID to deduplicate reconnects and a bounded recent history to catch up after a connection drops.
+The live feed shows other players' client-reported results, with public guest name, item, rarity, condition, float, and publication time. It keeps 100 recent events and waits to insert new entries while the player is reading older history.
 
-Choose storage and a real-time transport during implementation. Display connection status, handle offline play, and keep rendering work bounded during busy periods. Test two independent browser sessions receiving one another's results, reconnect recovery without duplicates, and safe display of player names. Inventory deletion should remain separate from historical opening events. The feed should represent actual published openings rather than simulated other players.
+One SQLite-backed Cloudflare Durable Object provides a hibernating WebSocket room alongside the existing site. Each browser has a persistent guest ID and editable name; names are not authenticated accounts. Results publish after reveal, using the instance ID for deduplication. An offline queue, retry acknowledgements, and recent-history snapshots support recovery without blocking free openings.
+
+The server validates fields and resolves item presentation from its catalog, while rolls and inventory remain on the client. Local item deletion leaves event history intact. Two-browser and native-runtime checks cover delivery, reconnects, deduplication, history bounds, safe text rendering, and persistence. See [live-feed details](live-feed.md) and the [hosting decision](adr/0001-shared-opening-feed.md). Accounts and authoritative roll verification are possible later work if required by a future economy.
 
 ## Economy
 

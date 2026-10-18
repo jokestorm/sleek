@@ -10,7 +10,8 @@ A free case-opening game built with React, TypeScript, and Vite. Open the Origin
 - Five rarity tiers. Roll the rarity first, then choose uniformly among its items.
 - Every drop is a separate inventory instance. Duplicate finishes never stack.
 - Each drop independently receives a uniform float in `[0, 1)` and a wear-pattern seed. Both stay fixed forever.
-- Browser-local IndexedDB collection, newest first. No account or server required.
+- Browser-local IndexedDB collection, newest first. No account required to play.
+- A shared live log of other players' revealed openings, with public guest names and reconnect recovery.
 - Individual item deletion and Clear inventory, both with confirmation.
 - 360° inspection for built-in items, with original 3D models, zoom, and a 2D artwork toggle.
 - Previous clicker saves are not migrated.
@@ -78,6 +79,14 @@ The four built-in weapon types have original solid models with painted and metal
 
 The renderer loads only when inspection opens, draws on demand, and releases its graphics resources when closed. Devices without supported WebGL, failed initialization, or lost graphics contexts fall back to the original artwork. See [inspection](docs/inspection.md) for model details, controls, and validation limits.
 
+## Live openings
+
+The live log shows recent player-reported openings across browsers, including guest name, finish, rarity, condition, float, and publication time. Edit Your public name and Save to change the name on future shared results. Names are public guest labels, not authenticated accounts. Each browser retains its own inventory.
+
+Results publish after the local reveal. Skip, reduced motion, and reload during the reel preserve the same item and event ID. Disconnected results queue for reconnection; loading old inventory normally does not publish it again. The feed retains 100 recent results. Reading older entries pauses insertion until you choose Show latest. Clearing inventory does not remove historical opening events.
+
+The shared feed uses a Cloudflare Worker and a SQLite-backed Durable Object, deployed alongside the site. A separate DigitalOcean server is not needed. The local game remains playable without the backend; its feed reports the connection state. See [live-feed setup and limits](docs/live-feed.md) for queue retention, client-reported results, and reconnect behavior.
+
 ## Reveal effects and sounds
 
 Common drops have a restrained reveal. Higher rarities add a stronger glow, expanding ring, more particles, a larger arrival effect, and additional musical layers. Legendary drops get the strongest celebration. Intensity follows rarity weights in the catalog; cosmetic effects never change drop odds or the saved winner. Factory New items also receive a small condition badge. Restoring a saved item does not replay its celebration, and reduced motion disables animated reveal effects.
@@ -109,7 +118,11 @@ npm run build
 npm run preview
 ```
 
+For the complete game with its local feed backend, run `npm run build`, then `npm run dev:worker`, and open `http://localhost:8787`. For frontend hot reload, also run `npm run dev`; Vite proxies `/api` to that Worker. `npm run preview` serves the frontend only.
+
 Core rules live in `src/game/loot.ts`; storage lives in `src/game/inventory.ts`. The interface is in `src/main.tsx`, the reel in `src/components/OpeningReel.tsx`, wear in `src/components/ItemArt.tsx`, celebration effects in `src/components/RevealEffects.tsx`, and sound in `src/audio.ts` with configuration in `src/audio.json`. `src/components/ItemInspection.tsx` loads the renderer and models in `src/inspection/` on demand.
+
+The shared feed backend is in `worker/index.ts`; its browser connection and wire protocol are in `src/feed/`, and its interface is in `src/components/LiveOpeningFeed.tsx`. Builds typecheck both the browser and Worker code.
 
 Core tests control random draws to check rarity boundaries, item-count invariance, uniform item selection, float bands, independent draws, snapshots, catalog validation, and winning reels. Browser checks exercise real openings, interruption paths, native persistence, duplicate instances, visible wear stability, and responsive layouts:
 
@@ -119,6 +132,10 @@ BASE_URL=http://localhost:5174 node scripts/browser-check.mjs /absolute/path/to/
 BASE_URL=http://localhost:5174 node scripts/reveal-check.mjs /absolute/path/to/@playwright/test/index.mjs
 BASE_URL=http://localhost:5174 node scripts/inventory-check.mjs /absolute/path/to/@playwright/test/index.mjs
 BASE_URL=http://localhost:5174 node scripts/inspection-check.mjs /absolute/path/to/@playwright/test/index.mjs
+# Feed checks require the local Worker as well as Vite:
+BASE_URL=http://localhost:5174 node scripts/feed-check.mjs /absolute/path/to/@playwright/test/index.mjs
+# Backend-only checks start an isolated local runtime automatically:
+node scripts/feed-backend-check.mjs
 ```
 
 The reveal check forces each tier through real openings, checks reduced motion and restoration, and loads a test WAV to verify custom playback and mute.
@@ -131,14 +148,14 @@ See [research](docs/research/case-opening.md) for primary-source findings and de
 
 ## Future plans
 
-- A live opening log: see other players' case-opening results as they happen.
 - Currency, a way to earn it, and case costs.
+- Authored GLB model loading, automatically generated previews, and aligned float-driven 3D/thumbnail wear.
 
-These are planned features; collections remain browser-local. The [roadmap](docs/roadmap.md) records the implemented inspection scope and remaining shared-feed and economy work.
+These are planned features; collections remain browser-local. The [roadmap](docs/roadmap.md) records the implemented inspection and shared-feed scope plus remaining model pipeline and economy work.
 
 ## Deployment
 
-Cloudflare Worker static-asset hosting is configured in [wrangler.jsonc](wrangler.jsonc). The Worker is named `sleek`; its static assets come from `dist`, with single-page application routing. No backend database, bindings, or game secrets are required.
+Cloudflare Worker hosting is configured in [wrangler.jsonc](wrangler.jsonc). The Worker is named `sleek`; its static assets come from `dist`, with single-page application routing. `/api/feed` routes to the `OPENING_FEED` Durable Object binding. The included `v1-opening-feed` migration provisions its SQLite namespace on deployment. No external database, separate server, or game secrets are required. Retain the migration history in later releases.
 
 For a production release, squash merge the reviewed development branch into `main`, tag the release commit, and sync the development branch. From the release checkout:
 
@@ -149,6 +166,6 @@ npx wrangler login
 npm run deploy
 ```
 
-Login authorizes Wrangler through your browser and is only needed when credentials are absent or expired. `npm run deploy` typechecks, builds, and uploads the game to Cloudflare, then prints the deployment URL. It deploys the current local checkout, so select the intended release before running it. Pushing a branch to GitHub alone does not run this command; automatic deployments require a separate Cloudflare Git integration or CI configuration.
+Login authorizes Wrangler through your browser and is only needed when credentials are absent or expired. `npm run deploy` typechecks, builds, and uploads the frontend and feed backend to Cloudflare, then prints the deployment URL. It deploys the current local checkout, so select the intended release before running it. Pushing a branch to GitHub alone does not run this command; automatic deployments require a separate Cloudflare Git integration or CI configuration.
 
-For local verification, run `npm run build` followed by `npm run preview`. Deployments serve static files; player collections remain in each browser. For Cloudflare account and domain setup, see the [Workers static-assets guide](https://developers.cloudflare.com/workers/static-assets/get-started/).
+For frontend verification, run `npm run build` followed by `npm run preview`. Use `npm run dev:worker` to verify the backend as well. Deployments serve static files and the shared feed; player collections remain in each browser. For Cloudflare account and domain setup, see the [Workers static-assets guide](https://developers.cloudflare.com/workers/static-assets/get-started/) and [live-feed deployment notes](docs/live-feed.md#deployment).

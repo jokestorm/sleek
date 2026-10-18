@@ -1,0 +1,5 @@
+# Host the shared opening feed in a Cloudflare Durable Object
+
+The existing Cloudflare-hosted game needs shared state and real-time delivery across browsers. Use one SQLite-backed Durable Object for the current case room, with a hibernating WebSocket connection per client, so the frontend and backend deploy together and recent history survives process eviction or restart. An existing DigitalOcean droplet was available; keeping this backend with the game avoids a separate server process and TLS/proxy deployment, at the cost of tying feed storage to Cloudflare's runtime.
+
+Openings remain client-rolled in this free demo. The server validates publications and resolves item presentation from its own catalog; this is a public player-reported activity feed, not proof of fair rolls or ownership. Publish after a reveal, preserve event IDs through retries, and keep shared history separate from local inventory deletion. Account identity and server-authoritative rolls can be designed if the economy later requires them.

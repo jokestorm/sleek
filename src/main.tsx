@@ -9,6 +9,8 @@ import { OpeningReel, type Opening } from './components/OpeningReel';
 import { openingSound, prepareAudio, reveal, setMuted, stopAudio, unlockAudio } from './audio';
 import { RevealEffects, revealLevel, revealTitles } from './components/RevealEffects';
 import { InventoryConfirmation, type InventoryAction } from './components/InventoryConfirmation';
+import { LiveOpeningFeed } from './components/LiveOpeningFeed';
+import { openingFeed } from './feed/client';
 import './style.css';
 const parsed = (() => { try {
   return validateCatalog(JSON.parse(catalogSource));
@@ -58,6 +60,7 @@ function App() {
   useEffect(() => { let active = true; loadInventory().then(page => { if (active) {
     setInventory(page);
     setResult(page.items[0] ?? null);
+    openingFeed.recoverReveal(page.items[0]);
     if (page.items[0] && catalog) {
       const winner = page.items[0];
       setOpening({ winner, ...makeReel(catalog, winner), offset: 0 });
@@ -121,6 +124,7 @@ function App() {
     setSpinning(false);
     setResult(opening.winner);
     setCelebration(opening.winner.instanceId);
+    openingFeed.publish(opening.winner);
     lock.current = false;
     reveal(opening.winner.rarity.id, revealLevel(opening.winner.rarity, catalog!));
     void refresh();
@@ -147,6 +151,7 @@ function App() {
           setError('Collection storage is unavailable. Only loaded items and new drops are shown; new drops last for this tab only.');
         }
       }
+      openingFeed.trackOpening(winner);
       const reel = makeReel(catalog, winner);
       setResult(null);
       setOpening({ winner, ...reel, offset: Math.random() * 60 - 30 });
@@ -164,7 +169,8 @@ function App() {
     return <main className="config-error"><h1>Check your loot catalog</h1>{parsed.errors.map(e => <p key={e}>{e}</p>)}<code>src/game/loot.json</code></main>;
   return <>
   <header className="site-header"><a href="/" className="brand" aria-label="Sleek home">sleek<span> / CASE ROOM</span></a><div className="header-actions"><span className="demo-badge">FREE DEMO</span><button className="icon-button" onClick={() => setMute(!muted)} aria-label={muted ? 'Unmute sound' : 'Mute sound'} title={muted ? 'Unmute sound' : 'Mute sound'}>{muted ? '♫̸' : '♫'}</button></div></header>
-  <main>
+  <main className="game-layout">
+   <div className="opening-area">
    <section className="case-heading"><div><div className="eyebrow">CASE 001 <span> / </span> ORIGINAL COLLECTION</div><h1>{catalog.name.replace(/\s+Case$/i, '')}<span>Case</span></h1><p>A new finish. A unique float. Yours to keep.</p></div><button className="text-button" onClick={() => setOdds(true)}>Contents & odds <span>↗</span></button></section>
    {error && <p className="notice" role="status">{error}</p>}
    <OpeningReel catalog={catalog} opening={opening} spinning={spinning} onFinish={finish}/>
@@ -172,6 +178,8 @@ function App() {
    <section className={`result-panel ${result ? 'has-result' : ''} ${result && celebration === result.instanceId ? 'is-celebrating' : ''}`} data-reveal-level={level} style={{ '--rarity': result?.rarity.color, '--reveal-strength': level } as CSSProperties} aria-live="polite" aria-atomic="true">
     {result ? <div key={result.instanceId} className="result-content" data-testid="result-card" {...metadata(result)} style={{ '--rarity': result.rarity.color } as CSSProperties}>{celebration === result.instanceId && <RevealEffects level={level}/>}<div className="result-art"><ItemArt item={result.item} float={result.float} seed={result.wearSeed}/></div><div className="result-info"><div className="eyebrow" style={{ color: result.rarity.color }}>{result.rarity.name} <span> / </span> ADDED TO COLLECTION</div><div className="reveal-title">{revealTitles[level]}{result.float < .07 && <span className="pristine-badge">Factory New</span>}</div><h2><span>{result.item.weapon}</span> {result.item.name}</h2><Wear item={result}/><button className="text-button" onClick={() => setInspect(result)}>Inspect finish ↗</button></div></div> : <div className="result-placeholder"><span className={spinning ? 'pulse' : ''}>{spinning ? '◈' : '◇'}</span><p>{spinning ? 'Something good is coming.' : 'Your next discovery starts here.'}</p><small>{spinning ? 'Every drop has its own float and wear.' : 'Open a case to reveal your first finish.'}</small></div>}
    </section>
+   </div>
+   <aside className="feed-sidebar" aria-label="Live opening feed"><LiveOpeningFeed/></aside>
    <section className="collection"><div className="section-heading"><div className="eyebrow">YOUR COLLECTION<h2>The keepers<span>{inventory.total}</span></h2></div><div className="collection-actions"><p>Individual drops. Individual character.</p><button className="clear-inventory" disabled={!inventory.total || busy || spinning || deleting} onClick={() => confirmInventoryAction({ kind: 'clear' })}>Clear inventory</button></div></div>
    {inventory.items.length ? <div className="inventory-grid">{inventory.items.map(item => <div className="inventory-entry" key={item.instanceId}><button className="inventory-card" data-testid="inventory-card" {...metadata(item)} style={{ '--rarity': item.rarity.color } as CSSProperties} onClick={() => setInspect(item)}><div className="inventory-art"><ItemArt item={item.item} float={item.float} seed={item.wearSeed}/></div><div className="inventory-copy"><span className="weapon">{item.item.weapon}</span><strong>{item.item.name}</strong><div className="inventory-condition"><span>{item.condition}</span><code>{item.float.toFixed(6)}</code></div></div></button><button className="delete-inventory-item" data-testid="inventory-delete" data-instance-id={item.instanceId} aria-label={`Delete ${item.item.weapon} ${item.item.name}`} title="Delete item" disabled={busy || spinning || deleting} onClick={() => confirmInventoryAction({ kind: 'delete', item })}>×</button></div>)}</div> : <div className="empty-collection"><span>＋</span><p>A little empty. For now.</p><small>Your discoveries will appear here, saved in this browser.</small></div>}
    {inventory.items.length < inventory.total && <button className="load-more" onClick={() => void refresh(inventory.items.length + 24)}>Load more</button>}

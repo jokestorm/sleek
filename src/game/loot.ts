@@ -71,7 +71,7 @@ export function cryptoRandomInt(bound: number): number {
   if (!Number.isSafeInteger(bound) || bound < 1 || bound > randomRange) throw new RangeError('Random bounds must be integers from 1 through 2^32.');
   const ceiling = Math.floor(randomRange / bound) * bound;
   const sample = new Uint32Array(1);
-  do { globalThis.crypto.getRandomValues(sample); } while (sample[0] >= ceiling);
+  do { crypto.getRandomValues(sample); } while (sample[0] >= ceiling);
   return sample[0] % bound;
 }
 
@@ -111,7 +111,7 @@ export function rollInstance(catalog: LootCatalog, options: { randomInt?: Random
   if (!rarity) throw new Error('The selected item references an unknown rarity.');
   const float = draw(randomInt, randomRange) / randomRange;
   const wearSeed = draw(randomInt, randomRange);
-  const instanceId = options.instanceId ?? globalThis.crypto.randomUUID();
+  const instanceId = options.instanceId ?? crypto.randomUUID();
   const openedAt = options.openedAt ?? Date.now();
   if (!text(instanceId) || !Number.isSafeInteger(openedAt) || openedAt < 0) throw new Error('The opening needs a unique id and a valid timestamp.');
   // Each owned item keeps its own catalog snapshot, including the rarity presentation.

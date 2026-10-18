@@ -1,0 +1,9 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "lib": ["ES2023"],
+    "types": ["@cloudflare/workers-types"],
+    "resolveJsonModule": true
+  },
+  "include": ["worker", "src/feed/protocol.ts", "src/game/loot.ts"]
+}

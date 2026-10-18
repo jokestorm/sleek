@@ -24,8 +24,14 @@ A browser case-opening game. The Origin Case is infinitely free during this demo
 
 **Inspection**: An interactive 360-degree view of an original built-in 3D model using the owned item's colors, float, and wear seed, with a 2D artwork view for custom finishes and graphics fallback.
 
+**Guest profile**: A browser-persisted random player ID and editable public display name. It is not an authenticated account.
+
+**Opening event**: A client-reported result shared after its local reveal. It uses the instance ID for retry deduplication and remains separate from inventory ownership or deletion.
+
+**Live opening feed**: The shared, newest-first recent history of opening events, available across browsers through the game backend.
+
 ## Current scope
 
-The shipped demo has one case, five rarity tiers with fixed weights, original weapon-inspired finishes, an opening reel with Skip and optional sound, contents and odds inspection, 360-degree item inspection, and a persistent collection with confirmed item deletion and clearing. The catalog lives in `src/game/loot.json`; README defines its editing rules and the chosen condition thresholds.
+The shipped demo has one case, five rarity tiers with fixed weights, original weapon-inspired finishes, an opening reel with Skip and optional sound, contents and odds inspection, 360-degree item inspection, a persistent collection with confirmed item deletion and clearing, and a shared live opening feed. The catalog lives in `src/game/loot.json`; README defines its editing rules and the chosen condition thresholds.
 
-Currency, earning methods, case costs, and a real-time feed of other players' openings are future work. See `docs/roadmap.md` for the remaining scope and `docs/inspection.md` for the current procedural models and their differences from 2D artwork. The earlier clicker economy is retired; its research is preserved under `docs/archive/`.
+Currency, earning methods, case costs, authored model loading, and generated previews with aligned wear are future work. See `docs/roadmap.md` for remaining scope, `docs/live-feed.md` for shared history and recovery, and `docs/inspection.md` for the current procedural models and their differences from 2D artwork. The earlier clicker economy is retired; its research is preserved under `docs/archive/`.
